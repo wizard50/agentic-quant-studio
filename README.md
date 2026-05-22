@@ -72,8 +72,8 @@ agentic-quant-studio/
 ---
 
 ## License
-MIT License
+This project is licensed under the [MIT License](LICENSE).
 
 ---
 
-Built by [wizard50]
+Built by [@wizard50](https://github.com/wizard50)
