@@ -40,8 +40,9 @@ The long-term goal is to build an intelligent workspace where users can interact
 ## Tech Stack
 
 - **Backend**: Rust + Axum (multi-crate workspace)
+- **Data Warehouse**: Parquet + Polars (Hive-style partitioning)
 - **Frontend**: Next.js + TradingView Lightweight Charts
-- **Future**: Rig (agent framework), RAG, Web3 libraries, ERC-8004 / Solana Agent Registry, PyTorch models (mlops)
+- **Future / Planned**: Rig (agent framework), RAG, Web3 libraries, ERC-8004 / Solana Agent Registry, PyTorch models (MLOps)
 
 ---
 
