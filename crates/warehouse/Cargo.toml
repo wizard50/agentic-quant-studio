@@ -1,0 +1,18 @@
+[package]
+name = "warehouse"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+common = { path = "../common" }
+api-client = { path = "../api-client" }
+thiserror.workspace = true
+tokio.workspace = true
+chrono.workspace = true
+polars = { workspace = true, features = ["dynamic_group_by", "partition_by"] } # "temporal"
+polars-utils = "0.53"
+
+[dev-dependencies]
+tempfile = "3"

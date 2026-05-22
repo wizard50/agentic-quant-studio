@@ -1,0 +1,32 @@
+[workspace]
+members = ["crates/*"]
+resolver = "3"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+authors = ["wizard50"]
+license = "MIT"
+
+[workspace.dependencies]
+# Async
+tokio = { version = "1", features = ["full"] }
+
+# Error handling + logging
+anyhow = "1"
+thiserror = "2"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+
+# Common data / HTTP
+reqwest = { version = "0.13", features = ["json", "query"] }
+polars = { version = "0.53", features = ["lazy", "parquet", "timezones"] }
+chrono = { version = "0.4" }
+
+# Web
+axum = "0.8"
+tower = "0.5"
+utoipa = { version = "5", features = ["axum"] }

@@ -1,0 +1,25 @@
+[package]
+name = "backend"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+default-run = "backend"
+
+[dependencies]
+common = { path = "../common", features = ["serde"] }
+warehouse = { path = "../warehouse" }
+anyhow.workspace = true
+axum.workspace = true
+chrono = { workspace = true, features = ["serde"] }
+config = { version = "0.14", features = ["toml"] }
+dirs = "6.0"
+serde.workspace = true
+shellexpand = "2.1"
+tokio.workspace = true
+toml = "0.8"
+tower = "0.5"
+tower-http = { version = "0.6", features = ["cors", "timeout", "trace"] }
+tracing.workspace = true
+tracing-subscriber.workspace = true
