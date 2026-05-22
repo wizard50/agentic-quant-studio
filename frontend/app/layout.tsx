@@ -6,8 +6,9 @@ import { QueryProvider } from "@/components/providers/QueryProvider";
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
 export const metadata: Metadata = {
-  title: "Agentic Quant",
-  description: "Agentic Quant Trading Research Platform",
+  title: "Agentic Quant Studio",
+  description:
+    "Build autonomous AI agents for quant trading and Web3. Research, code generation, backtesting & on-chain analysis in one intelligent studio.",
 };
 
 export default function RootLayout({

@@ -11,8 +11,8 @@ fn floor_to_minute_start(ts_ms: i64) -> i64 {
 }
 
 fn get_parquet_base_dir() -> PathBuf {
-    let path = std::env::var("AGENTIC_QUANT_PARQUET_BASE_DIR")
-        .unwrap_or_else(|_| "/tmp/agentic-quant/parquet".to_string());
+    let path = std::env::var("AGENTIC_QUANT_STUDIO_PARQUET_BASE_DIR")
+        .unwrap_or_else(|_| "/tmp/agentic-quant-studio/parquet".to_string());
     shellexpand::tilde(&path).into_owned().into()
 }
 

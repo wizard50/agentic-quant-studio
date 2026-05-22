@@ -33,13 +33,13 @@ impl Config {
 
         // User config (optional)
         if let Some(config_dir) = dirs::config_dir() {
-            let user_config = config_dir.join("agentic-quant/config.toml");
+            let user_config = config_dir.join("agentic-quant-studio/config.toml");
             builder = builder.add_source(config::File::from(user_config).required(false));
         }
 
         // Env vars (highest prio)
         builder = builder.add_source(
-            config::Environment::with_prefix("AGENTIC_QUANT")
+            config::Environment::with_prefix("AGENTIC_QUANT_STUDIO")
                 .separator("__")
                 .try_parsing(true),
         );

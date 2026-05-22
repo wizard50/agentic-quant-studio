@@ -4,7 +4,7 @@ use common::types::{Candle, Interval};
 use warehouse::parquet;
 
 pub fn get_candles(query: CandleQuery) -> Result<Vec<Candle>> {
-    let parquet_base_dir = "/tmp/agentic-quant/parquet"; // TODO: make configurable
+    let parquet_base_dir = "/tmp/agentic-quant-studio/parquet"; // TODO: make configurable
 
     let candles = if query.interval == Interval::Minute(1) {
         parquet::load_candles(
