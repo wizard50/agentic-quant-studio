@@ -3,9 +3,11 @@ pub mod handlers;
 pub mod models;
 pub mod router;
 pub mod services;
+pub mod state;
 
 use anyhow::Result;
 use config::Config;
+use state::AppState;
 use tokio::net::TcpListener;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -21,9 +23,11 @@ async fn main() -> Result<()> {
 
     let config = Config::load()?;
 
-    let app = router::create_router(&config);
+    let state = AppState { config };
 
-    let addr = format!("{}:{}", config.server.host, config.server.port);
+    let app = router::create_router(state.clone());
+
+    let addr = format!("{}:{}", state.config.server.host, state.config.server.port);
     let listener = TcpListener::bind(&addr).await?;
 
     tracing::info!("🚀 Backend listening on {}", &addr);

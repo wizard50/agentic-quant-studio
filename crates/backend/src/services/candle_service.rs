@@ -1,10 +1,10 @@
-use crate::models::candle::CandleQuery;
+use crate::{config::Config, models::candle::CandleQuery};
 use anyhow::Result;
 use common::types::{Candle, Interval};
 use warehouse::parquet;
 
-pub fn get_candles(query: CandleQuery) -> Result<Vec<Candle>> {
-    let parquet_base_dir = "/tmp/agentic-quant-studio/parquet"; // TODO: make configurable
+pub fn get_candles(config: &Config, query: CandleQuery) -> Result<Vec<Candle>> {
+    let parquet_base_dir = config.parquet_base_dir();
 
     let candles = if query.interval == Interval::Minute(1) {
         parquet::load_candles(

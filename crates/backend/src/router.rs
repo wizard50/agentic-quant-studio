@@ -1,5 +1,5 @@
-use crate::config::Config;
 use crate::handlers::candles;
+use crate::state::AppState;
 use axum::{
     Router,
     http::{HeaderValue, StatusCode},
@@ -9,12 +9,13 @@ use std::time::Duration;
 use tower::ServiceBuilder;
 use tower_http::{cors::CorsLayer, timeout::TimeoutLayer, trace::TraceLayer};
 
-pub fn create_router(config: &Config) -> Router {
-    let cors_layer = if config.cors.allowed_origins.contains(&"*".to_string()) {
+pub fn create_router(state: AppState) -> Router {
+    let cors_layer = if state.config.cors.allowed_origins.contains(&"*".to_string()) {
         CorsLayer::permissive()
     } else {
         // Convert Vec<String> → Vec<HeaderValue> for allow_origin()
-        let origins: Vec<HeaderValue> = config
+        let origins: Vec<HeaderValue> = state
+            .config
             .cors
             .allowed_origins
             .iter()
@@ -35,8 +36,9 @@ pub fn create_router(config: &Config) -> Router {
     Router::new()
         .nest("/api/v1", api_routes())
         .layer(middleware)
+        .with_state(state)
 }
 
-fn api_routes() -> Router {
+fn api_routes() -> Router<AppState> {
     Router::new().route("/candles", get(candles::list))
 }
