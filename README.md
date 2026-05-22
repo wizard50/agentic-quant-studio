@@ -2,6 +2,15 @@
 
 A workspace for building agentic AI systems in quantitative finance and Web3.
 
+<!--![Agentic Quant Studio Screenshot](./assets/agentic-quant-studio-screenshot.png)-->
+<div align="center">
+  <img 
+    src="./assets/agentic-quant-studio-screenshot.png" 
+    alt="Agentic Quant Studio Screenshot" 
+    width="820" 
+    style="max-width: 100%; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
+</div>
+
 ---
 
 ## Current Status
