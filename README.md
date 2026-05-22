@@ -20,6 +20,7 @@ A workspace for building agentic AI systems in quantitative finance and Web3.
 What exists right now:
 - Rust backend with a single candle data endpoint (Axum)
 - Next.js frontend with a basic TradingView Lightweight Charts component
+- Downsampling support in the warehouse / backend (already selectable in the UI)
 - Manual seeding script (`cargo run -p backend --bin seed`) that loads the latest 7 days of data
 
 Most features are still in planning or not implemented yet.
