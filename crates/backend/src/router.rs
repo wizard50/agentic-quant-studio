@@ -3,7 +3,7 @@ use crate::state::AppState;
 use axum::{
     Router,
     http::{HeaderValue, StatusCode},
-    routing::get,
+    routing::{get, post},
 };
 use std::time::Duration;
 use tower::ServiceBuilder;
@@ -29,7 +29,7 @@ pub fn create_router(state: AppState) -> Router {
         .layer(TraceLayer::new_for_http())
         .layer(TimeoutLayer::with_status_code(
             StatusCode::REQUEST_TIMEOUT,
-            Duration::from_secs(10),
+            Duration::from_secs(30),
         ))
         .layer(cors_layer);
 
@@ -40,5 +40,9 @@ pub fn create_router(state: AppState) -> Router {
 }
 
 fn api_routes() -> Router<AppState> {
-    Router::new().route("/candles", get(candles::list))
+    Router::new()
+        .route("/candles", get(candles::list))
+        .route("/candles/ingest", post(candles::ingest))
+    // .route("/candles/ingest/status", get(candles::ingest_status))
+    // .route("/candles/ingest/jobs", get(candles::ingest_status))
 }

@@ -14,10 +14,12 @@ anyhow.workspace = true
 axum.workspace = true
 chrono = { workspace = true, features = ["serde"] }
 config = { version = "0.14", features = ["toml"] }
+dashmap = "6.2"
 dirs = "6.0"
 serde.workspace = true
 shellexpand = "2.1"
 tokio.workspace = true
+uuid = { version = "1.23", features = ["v4"]}
 toml = "0.8"
 tower = "0.5"
 tower-http = { version = "0.6", features = ["cors", "timeout", "trace"] }
