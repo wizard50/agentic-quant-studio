@@ -18,7 +18,9 @@ A workspace for building agentic AI systems in quantitative finance and Web3.
 **Very early prototype (minimal demo)**
 
 What exists right now:
-- Rust backend with a single candle data endpoint (Axum)
+- Rust backend (Axum) with candle data endpoints:
+  - `GET /api/v1/candles` — query historical candles (with downsampling)
+  - `POST /api/v1/candles/ingest` — trigger background candle ingestion (returns 202 Accepted)
 - Next.js frontend with a basic TradingView Lightweight Charts component
 - Downsampling support in the warehouse / backend (already selectable in the UI)
 - Manual seeding script (`cargo run -p backend --bin seed`) that loads the latest 7 days of data
@@ -53,7 +55,7 @@ The long-term goal is to build an intelligent workspace where users can interact
 git clone https://github.com/wizard50/agentic-quant-studio.git
 cd agentic-quant-studio
 
-# Data init
+# Initial data seeding (optional)
 cargo run -p backend --bin seed
 
 # Backend
@@ -63,6 +65,11 @@ cargo run -p backend
 cd frontend
 npm install
 npm run dev
+```
+
+You can also trigger candle ingestion via the API:
+```bash
+curl -X POST "http://localhost:3000/api/v1/candles/ingest?exchange=bybit&category=spot&symbol=BTCUSDT" -H "Accept: application/json" -w "\n\nHTTP Status: %{http_code}\n" -s
 ```
 
 ---
