@@ -1,3 +1,4 @@
+use crate::catalog::Catalog;
 use crate::config::Config;
 use crate::services::jobs::ingest_candles::{IngestCandlesJob, JobKey, JobStatus, Status};
 use dashmap::DashMap;
@@ -11,6 +12,7 @@ pub struct AppState {
     pub config: Config,
     pub job_queue: mpsc::Sender<IngestCandlesJob>,
     pub job_status: Arc<DashMap<Uuid, JobStatus>>,
+    pub catalog: Catalog,
 }
 
 impl AppState {

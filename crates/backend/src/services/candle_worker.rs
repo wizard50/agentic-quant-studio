@@ -1,3 +1,4 @@
+use crate::catalog::Catalog;
 use crate::services::jobs::ingest_candles::{IngestCandlesJob, JobStatus, Status};
 use dashmap::DashMap;
 use std::path::PathBuf;
@@ -11,6 +12,7 @@ pub async fn candle_ingestion_worker(
     mut rx: mpsc::Receiver<IngestCandlesJob>,
     status_map: Arc<DashMap<Uuid, JobStatus>>,
     base_dir: PathBuf,
+    catalog: Catalog,
 ) {
     while let Some(job) = rx.recv().await {
         let job_id = job.id;
@@ -32,6 +34,15 @@ pub async fn candle_ingestion_worker(
         let result = execute_ingestion(&job, from, &base_dir).await;
 
         update_job_status(&status_map, job_id, result);
+
+        // Hook: refresh the catalog after a successful ingestion
+        if let Some(entry) = status_map.get(&job_id) {
+            if matches!(entry.status, Status::Completed) {
+                if let Err(e) = catalog.refresh(&base_dir).await {
+                    error!("Failed to refresh catalog after successful ingestion: {}", e);
+                }
+            }
+        }
     }
 }
 
