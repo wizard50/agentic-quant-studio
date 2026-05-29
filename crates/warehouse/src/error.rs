@@ -22,6 +22,12 @@ pub enum Error {
 
     #[error("no earliest candle found for {0}")]
     NoEarliestCandle(String),
+
+    #[error("catalog error: {0}")]
+    Catalog(String),
+
+    #[error("failed to read or write catalog.json: {0}")]
+    CatalogPersistence(String),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
