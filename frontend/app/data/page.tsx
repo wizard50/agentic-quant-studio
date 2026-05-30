@@ -7,6 +7,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Database, Play, RefreshCw } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useCatalogSummary } from "@/hooks/useCatalogSummary";
+import { useActiveJobSummary } from "@/hooks/useIngestionJobs";
+import { formatBytes, formatCompactNumber } from "@/lib/utils";
 
 // Hardcoded for first version
 const EXCHANGES = ["bybit"] as const;
@@ -27,6 +31,14 @@ export default function DataManagementPage() {
   const [selectedSymbols, setSelectedSymbols] = useState<string[]>([]);
   const [isIngesting, setIsIngesting] = useState(false);
 
+  // Real warehouse stats from backend catalog
+  const { data: catalog, isLoading: isCatalogLoading } = useCatalogSummary();
+
+  // Active ingestion jobs (for the KPI card)
+  const { data: jobSummary, isLoading: isJobsLoading } = useActiveJobSummary();
+
+  const queryClient = useQueryClient();
+
   const toggleSymbol = (symbol: string) => {
     setSelectedSymbols((prev) =>
       prev.includes(symbol)
@@ -44,6 +56,12 @@ export default function DataManagementPage() {
   };
 
   const clearSelection = () => setSelectedSymbols([]);
+
+  const handleRefresh = () => {
+    // Invalidate both data sources used on this page
+    queryClient.invalidateQueries({ queryKey: ["catalog"] });
+    queryClient.invalidateQueries({ queryKey: ["ingest-jobs"] });
+  };
 
   // Ingest handler
   const handleIngest = async () => {
@@ -82,10 +100,13 @@ export default function DataManagementPage() {
       if (failed === 0) {
         alert(`Successfully queued ingestion for ${successful} symbol(s).`);
         setSelectedSymbols([]); // Clear selection
+        // Refresh the Active Jobs card
+        queryClient.invalidateQueries({ queryKey: ["ingest-jobs"] });
       } else {
         alert(
           `Ingestion queued for ${successful} symbol(s). ${failed} failed. Check console for details.`,
         );
+        queryClient.invalidateQueries({ queryKey: ["ingest-jobs"] });
       }
     } catch (error) {
       console.error("Ingest error:", error);
@@ -122,8 +143,16 @@ export default function DataManagementPage() {
                 <Database className="h-4 w-4 text-zinc-500" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-semibold">142</div>
-                <p className="text-xs text-zinc-500 mt-1">+3 this week</p>
+                <div className="text-2xl font-semibold">
+                  {isCatalogLoading
+                    ? "—"
+                    : (catalog?.totalDatasets?.toLocaleString() ?? "0")}
+                </div>
+                <p className="text-xs text-zinc-500 mt-1">
+                  {catalog?.lastUpdated
+                    ? `Updated ${new Date(catalog.lastUpdated).toLocaleDateString()}`
+                    : "No data yet"}
+                </p>
               </CardContent>
             </Card>
 
@@ -135,7 +164,11 @@ export default function DataManagementPage() {
                 <Database className="h-4 w-4 text-zinc-500" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-semibold">2.4M</div>
+                <div className="text-2xl font-semibold">
+                  {isCatalogLoading
+                    ? "—"
+                    : formatCompactNumber(catalog?.totalCandles ?? 0)}
+                </div>
                 <p className="text-xs text-zinc-500 mt-1">Across all symbols</p>
               </CardContent>
             </Card>
@@ -148,7 +181,11 @@ export default function DataManagementPage() {
                 <Database className="h-4 w-4 text-zinc-500" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-semibold">87.3 GB</div>
+                <div className="text-2xl font-semibold">
+                  {isCatalogLoading
+                    ? "—"
+                    : formatBytes(catalog?.storageBytes ?? 0)}
+                </div>
                 <p className="text-xs text-zinc-500 mt-1">Parquet + indexes</p>
               </CardContent>
             </Card>
@@ -161,9 +198,13 @@ export default function DataManagementPage() {
                 <Play className="h-4 w-4 text-emerald-500" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-semibold text-emerald-400">3</div>
+                <div className="text-2xl font-semibold text-emerald-400">
+                  {isJobsLoading ? "—" : (jobSummary?.totalActive ?? 0)}
+                </div>
                 <p className="text-xs text-zinc-500 mt-1">
-                  2 running • 1 queued
+                  {isJobsLoading
+                    ? "Loading..."
+                    : `${jobSummary?.running ?? 0} running • ${jobSummary?.pending ?? 0} queued`}
                 </p>
               </CardContent>
             </Card>
@@ -179,7 +220,11 @@ export default function DataManagementPage() {
             </div>
 
             <div className="flex gap-2 w-full sm:w-auto">
-              <Button variant="outline" className="gap-2">
+              <Button
+                variant="outline"
+                className="gap-2"
+                onClick={handleRefresh}
+              >
                 <RefreshCw className="h-4 w-4" />
                 Refresh
               </Button>
@@ -283,18 +328,6 @@ export default function DataManagementPage() {
                     ? `Ingesting ${selectedSymbols.length} symbol(s)...`
                     : `Ingest Selected (${selectedSymbols.length})`}
                 </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* My Datasets placeholder */}
-          <Card>
-            <CardHeader>
-              <CardTitle>My Datasets</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-sm text-zinc-500">
-                (We will add the datasets table here later)
               </div>
             </CardContent>
           </Card>
