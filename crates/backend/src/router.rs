@@ -43,8 +43,8 @@ fn api_routes() -> Router<AppState> {
     Router::new()
         .route("/candles", get(candles::list))
         .route("/candles/ingest", post(candles::ingest))
+        .route("/candles/ingest/jobs", get(candles::list_ingest_jobs))
+        .route("/candles/ingest/jobs/{id}", get(candles::get_ingest_job))
         .route("/catalog/candles", get(catalog::candles))
         .route("/catalog/candles/refresh", post(catalog::refresh_candles))
-    // .route("/candles/ingest/status", get(candles::ingest_status))
-    // .route("/candles/ingest/jobs", get(candles::ingest_status))
 }
