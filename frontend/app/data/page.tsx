@@ -246,60 +246,91 @@ export default function DataManagementPage() {
             </Card>
           </div>
 
-          {/* QUICK INGEST */}
-          <Card>
-            <CardHeader
-              className="cursor-pointer select-none"
-              onClick={() => setIsQuickIngestOpen(!isQuickIngestOpen)}
-            >
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2">
-                  <Play className="h-5 w-5" /> Quick Ingest
-                </CardTitle>
-                <ChevronDown
-                  className={`h-5 w-5 text-zinc-400 transition-transform duration-200 ${
-                    isQuickIngestOpen ? "rotate-180" : ""
-                  }`}
-                />
+          {/* Toolbar */}
+          <div className="flex flex-col lg:flex-row gap-3 items-start lg:items-center justify-between rounded-lg border border-zinc-800 bg-zinc-950 p-3">
+            {/* Search */}
+            <div className="flex-1 w-full lg:max-w-sm relative">
+              <Input
+                placeholder="Search symbols (e.g. BTCUSDT)..."
+                className="pr-8"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+              {searchTerm && (
+                <button
+                  onClick={() => setSearchTerm("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-200"
+                  aria-label="Clear search"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+
+            {/* Filters */}
+            <div className="flex flex-wrap gap-3">
+              <div>
+                <div className="text-xs text-zinc-400 mb-1">Exchange</div>
+                <select
+                  value={exchange}
+                  onChange={(e) => setExchange(e.target.value as "bybit")}
+                  className="bg-zinc-950 border border-zinc-700 rounded-md px-3 py-1.5 text-sm"
+                >
+                  {EXCHANGES.map((ex) => (
+                    <option key={ex} value={ex}>
+                      {ex}
+                    </option>
+                  ))}
+                </select>
               </div>
-            </CardHeader>
 
-            {isQuickIngestOpen && (
-              <CardContent className="space-y-4">
-                {/* Selectors */}
-                <div className="flex flex-wrap gap-4">
-                  <div>
-                    <div className="text-xs text-zinc-400 mb-1.5">Exchange</div>
-                    <select
-                      value={exchange}
-                      onChange={(e) => setExchange(e.target.value as "bybit")}
-                      className="bg-zinc-950 border border-zinc-700 rounded-md px-3 py-2 text-sm"
-                    >
-                      {EXCHANGES.map((ex) => (
-                        <option key={ex} value={ex}>
-                          {ex}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+              <div>
+                <div className="text-xs text-zinc-400 mb-1">Category</div>
+                <select
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value as "spot")}
+                  className="bg-zinc-950 border border-zinc-700 rounded-md px-3 py-1.5 text-sm"
+                >
+                  {CATEGORIES.map((cat) => (
+                    <option key={cat} value={cat}>
+                      {cat}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
 
-                  <div>
-                    <div className="text-xs text-zinc-400 mb-1.5">Category</div>
-                    <select
-                      value={category}
-                      onChange={(e) => setCategory(e.target.value as "spot")}
-                      className="bg-zinc-950 border border-zinc-700 rounded-md px-3 py-2 text-sm"
-                    >
-                      {CATEGORIES.map((cat) => (
-                        <option key={cat} value={cat}>
-                          {cat}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
+            {/* Actions */}
+            <div className="flex gap-2 pt-4 lg:pt-0">
+              <Button
+                variant="outline"
+                className="gap-2"
+                onClick={handleRefresh}
+              >
+                <RefreshCw className="h-4 w-4" />
+                Refresh
+              </Button>
 
-                {/* Symbol Selection with Checkboxes */}
+              <Button
+                variant={isQuickIngestOpen ? "default" : "outline"}
+                className="gap-2"
+                onClick={() => setIsQuickIngestOpen(!isQuickIngestOpen)}
+              >
+                {isQuickIngestOpen ? (
+                  <ChevronDown className="h-4 w-4" />
+                ) : (
+                  <Play className="h-4 w-4" />
+                )}
+                Quick Ingest
+              </Button>
+            </div>
+          </div>
+
+          {/* Quick Ingest Panel (controlled from toolbar) */}
+          {isQuickIngestOpen && (
+            <Card>
+              <CardContent className="pt-4 space-y-4">
+                {/* Symbol Selection */}
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <div className="text-sm font-medium">
@@ -354,12 +385,12 @@ export default function DataManagementPage() {
                   )}
                 </div>
 
-                {/* Action Button */}
-                <div className="pt-2">
+                {/* Ingest Action */}
+                <div className="pt-2 flex justify-end">
                   <Button
                     onClick={handleIngest}
                     disabled={validSelectedSymbols.length === 0 || isIngesting}
-                    className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 disabled:opacity-70"
+                    className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-70"
                   >
                     {isIngesting
                       ? `Ingesting ${validSelectedSymbols.length} symbol(s)...`
@@ -367,40 +398,8 @@ export default function DataManagementPage() {
                   </Button>
                 </div>
               </CardContent>
-            )}
-          </Card>
-
-          {/* Toolbar */}
-          <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
-            <div className="flex-1 w-full sm:w-auto relative max-w-sm">
-              <Input
-                placeholder="Search symbols (e.g. BTCUSDT)..."
-                className="pr-8"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-              {searchTerm && (
-                <button
-                  onClick={() => setSearchTerm("")}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-200"
-                  aria-label="Clear search"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              )}
-            </div>
-
-            <div className="flex gap-2 w-full sm:w-auto">
-              <Button
-                variant="outline"
-                className="gap-2"
-                onClick={handleRefresh}
-              >
-                <RefreshCw className="h-4 w-4" />
-                Refresh
-              </Button>
-            </div>
-          </div>
+            </Card>
+          )}
 
           {/* Datasets Table */}
           <Card>
