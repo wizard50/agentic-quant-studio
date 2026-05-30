@@ -1,16 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Database, Play, RefreshCw } from "lucide-react";
+import { ChevronDown, Database, Play, RefreshCw, X } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCatalogSummary } from "@/hooks/useCatalogSummary";
 import { useActiveJobSummary } from "@/hooks/useIngestionJobs";
+import { useDatasets } from "@/hooks/useCatalog";
 import { formatBytes, formatCompactNumber } from "@/lib/utils";
+import type { DatasetCoverage } from "@/lib/types";
 
 // Hardcoded for first version
 const EXCHANGES = ["bybit"] as const;
@@ -30,12 +32,46 @@ export default function DataManagementPage() {
   const [category, setCategory] = useState<"spot">("spot");
   const [selectedSymbols, setSelectedSymbols] = useState<string[]>([]);
   const [isIngesting, setIsIngesting] = useState(false);
+  const [isQuickIngestOpen, setIsQuickIngestOpen] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
 
   // Real warehouse stats from backend catalog
   const { data: catalog, isLoading: isCatalogLoading } = useCatalogSummary();
 
   // Active ingestion jobs (for the KPI card)
   const { data: jobSummary, isLoading: isJobsLoading } = useActiveJobSummary();
+
+  // Full list of datasets for the table
+  const { datasets, isLoading: isDatasetsLoading } = useDatasets();
+
+  // Compute which symbols are not yet in the catalog for the current market
+  const availableSymbols = useMemo(() => {
+    const existing = new Set(
+      datasets
+        .filter((d) => d.exchange === exchange && d.category === category)
+        .map((d) => d.symbol),
+    );
+    return SYMBOLS.filter((s) => !existing.has(s));
+  }, [datasets, exchange, category]);
+
+  // Effective selected symbols that are still valid for the current market
+  const validSelectedSymbols = useMemo(() => {
+    return selectedSymbols.filter((s) => availableSymbols.includes(s));
+  }, [selectedSymbols, availableSymbols]);
+
+  // Filtered datasets for the table based on search
+  const filteredDatasets = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    if (!term) return datasets;
+
+    return datasets.filter(
+      (d) =>
+        d.symbol.toLowerCase().includes(term) ||
+        d.exchange.toLowerCase().includes(term) ||
+        d.category.toLowerCase().includes(term) ||
+        d.interval.toLowerCase().includes(term),
+    );
+  }, [datasets, searchTerm]);
 
   const queryClient = useQueryClient();
 
@@ -48,10 +84,10 @@ export default function DataManagementPage() {
   };
 
   const toggleAll = () => {
-    if (selectedSymbols.length === SYMBOLS.length) {
+    if (validSelectedSymbols.length === availableSymbols.length) {
       setSelectedSymbols([]);
     } else {
-      setSelectedSymbols([...SYMBOLS]);
+      setSelectedSymbols([...availableSymbols]);
     }
   };
 
@@ -65,14 +101,14 @@ export default function DataManagementPage() {
 
   // Ingest handler
   const handleIngest = async () => {
-    if (selectedSymbols.length === 0) return;
+    if (validSelectedSymbols.length === 0) return;
 
     setIsIngesting(true);
 
     try {
       // Call the endpoint once per symbol (current backend limitation)
       const results = await Promise.allSettled(
-        selectedSymbols.map(async (symbol) => {
+        validSelectedSymbols.map(async (symbol) => {
           const params = new URLSearchParams({
             exchange,
             category,
@@ -210,13 +246,148 @@ export default function DataManagementPage() {
             </Card>
           </div>
 
+          {/* QUICK INGEST */}
+          <Card>
+            <CardHeader
+              className="cursor-pointer select-none"
+              onClick={() => setIsQuickIngestOpen(!isQuickIngestOpen)}
+            >
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <Play className="h-5 w-5" /> Quick Ingest
+                </CardTitle>
+                <ChevronDown
+                  className={`h-5 w-5 text-zinc-400 transition-transform duration-200 ${
+                    isQuickIngestOpen ? "rotate-180" : ""
+                  }`}
+                />
+              </div>
+            </CardHeader>
+
+            {isQuickIngestOpen && (
+              <CardContent className="space-y-4">
+                {/* Selectors */}
+                <div className="flex flex-wrap gap-4">
+                  <div>
+                    <div className="text-xs text-zinc-400 mb-1.5">Exchange</div>
+                    <select
+                      value={exchange}
+                      onChange={(e) => setExchange(e.target.value as "bybit")}
+                      className="bg-zinc-950 border border-zinc-700 rounded-md px-3 py-2 text-sm"
+                    >
+                      {EXCHANGES.map((ex) => (
+                        <option key={ex} value={ex}>
+                          {ex}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <div className="text-xs text-zinc-400 mb-1.5">Category</div>
+                    <select
+                      value={category}
+                      onChange={(e) => setCategory(e.target.value as "spot")}
+                      className="bg-zinc-950 border border-zinc-700 rounded-md px-3 py-2 text-sm"
+                    >
+                      {CATEGORIES.map((cat) => (
+                        <option key={cat} value={cat}>
+                          {cat}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Symbol Selection with Checkboxes */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="text-sm font-medium">
+                      Select symbols to ingest
+                      <span className="ml-1 text-zinc-500">
+                        ({availableSymbols.length} available)
+                      </span>
+                    </div>
+                    <div className="flex gap-2">
+                      {availableSymbols.length > 0 && (
+                        <>
+                          <Button variant="ghost" size="sm" onClick={toggleAll}>
+                            {validSelectedSymbols.length ===
+                            availableSymbols.length
+                              ? "Deselect All"
+                              : "Select All"}
+                          </Button>
+                          {validSelectedSymbols.length > 0 && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={clearSelection}
+                            >
+                              Clear
+                            </Button>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {availableSymbols.length === 0 ? (
+                    <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-4 text-sm text-zinc-500">
+                      All symbols are already present in the catalog for this
+                      market.
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 border border-zinc-800 rounded-lg p-4 bg-zinc-950">
+                      {availableSymbols.map((symbol) => (
+                        <label
+                          key={symbol}
+                          className="flex items-center gap-2 cursor-pointer hover:bg-zinc-900 px-3 py-2 rounded-md"
+                        >
+                          <Checkbox
+                            checked={validSelectedSymbols.includes(symbol)}
+                            onCheckedChange={() => toggleSymbol(symbol)}
+                          />
+                          <span className="font-mono text-sm">{symbol}</span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Action Button */}
+                <div className="pt-2">
+                  <Button
+                    onClick={handleIngest}
+                    disabled={validSelectedSymbols.length === 0 || isIngesting}
+                    className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 disabled:opacity-70"
+                  >
+                    {isIngesting
+                      ? `Ingesting ${validSelectedSymbols.length} symbol(s)...`
+                      : `Ingest Selected (${validSelectedSymbols.length})`}
+                  </Button>
+                </div>
+              </CardContent>
+            )}
+          </Card>
+
           {/* Toolbar */}
           <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
-            <div className="flex-1 w-full sm:w-auto">
+            <div className="flex-1 w-full sm:w-auto relative max-w-sm">
               <Input
                 placeholder="Search symbols (e.g. BTCUSDT)..."
-                className="max-w-sm"
+                className="pr-8"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
               />
+              {searchTerm && (
+                <button
+                  onClick={() => setSearchTerm("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-200"
+                  aria-label="Clear search"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
             </div>
 
             <div className="flex gap-2 w-full sm:w-auto">
@@ -228,125 +399,100 @@ export default function DataManagementPage() {
                 <RefreshCw className="h-4 w-4" />
                 Refresh
               </Button>
-
-              <Button className="gap-2 bg-emerald-600 hover:bg-emerald-700">
-                <Play className="h-4 w-4" />
-                Ingest Data
-              </Button>
             </div>
           </div>
 
-          {/* QUICK INGEST */}
+          {/* Datasets Table */}
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Play className="h-5 w-5" /> Quick Ingest
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Selectors */}
-              <div className="flex flex-wrap gap-4">
-                <div>
-                  <div className="text-xs text-zinc-400 mb-1.5">Exchange</div>
-                  <select
-                    value={exchange}
-                    onChange={(e) => setExchange(e.target.value as "bybit")}
-                    className="bg-zinc-950 border border-zinc-700 rounded-md px-3 py-2 text-sm"
-                  >
-                    {EXCHANGES.map((ex) => (
-                      <option key={ex} value={ex}>
-                        {ex}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <div className="text-xs text-zinc-400 mb-1.5">Category</div>
-                  <select
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value as "spot")}
-                    className="bg-zinc-950 border border-zinc-700 rounded-md px-3 py-2 text-sm"
-                  >
-                    {CATEGORIES.map((cat) => (
-                      <option key={cat} value={cat}>
-                        {cat}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* Symbol Selection with Checkboxes */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <div className="text-sm font-medium">
-                    Select symbols to ingest
-                  </div>
-                  <div className="flex gap-2">
-                    <Button variant="ghost" size="sm" onClick={toggleAll}>
-                      {selectedSymbols.length === SYMBOLS.length
-                        ? "Deselect All"
-                        : "Select All"}
-                    </Button>
-                    {selectedSymbols.length > 0 && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={clearSelection}
-                      >
-                        Clear
-                      </Button>
-                    )}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 border border-zinc-800 rounded-lg p-4 bg-zinc-950">
-                  {SYMBOLS.map((symbol) => (
-                    <label
-                      key={symbol}
-                      className="flex items-center gap-2 cursor-pointer hover:bg-zinc-900 px-3 py-2 rounded-md"
-                    >
-                      <Checkbox
-                        checked={selectedSymbols.includes(symbol)}
-                        onCheckedChange={() => toggleSymbol(symbol)}
-                      />
-                      <span className="font-mono text-sm">{symbol}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              {/* Action Button */}
-              <div className="pt-2">
-                <Button
-                  onClick={handleIngest}
-                  disabled={selectedSymbols.length === 0 || isIngesting}
-                  className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 disabled:opacity-70"
-                >
-                  {isIngesting
-                    ? `Ingesting ${selectedSymbols.length} symbol(s)...`
-                    : `Ingest Selected (${selectedSymbols.length})`}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Placeholder for Table */}
-          <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Datasets</CardTitle>
+              <span className="text-sm text-zinc-500">
+                {isDatasetsLoading
+                  ? "…"
+                  : searchTerm
+                    ? `${filteredDatasets.length} of ${datasets.length}`
+                    : `${datasets.length} total`}
+              </span>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center justify-center h-64 border border-dashed border-zinc-700 rounded-xl">
-                <div className="text-center text-zinc-500">
-                  <Database className="mx-auto h-8 w-8 mb-3 opacity-50" />
-                  <p className="font-medium">Dataset table will go here</p>
+              {isDatasetsLoading ? (
+                <div className="flex items-center justify-center h-48 text-zinc-500">
+                  Loading datasets...
+                </div>
+              ) : datasets.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-48 text-center text-zinc-500">
+                  <Database className="h-8 w-8 mb-3 opacity-50" />
+                  <p className="font-medium">No datasets found</p>
                   <p className="text-sm mt-1">
-                    We will build this in the next steps
+                    Ingest some data to populate the catalog
                   </p>
                 </div>
-              </div>
+              ) : filteredDatasets.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-48 text-center text-zinc-500">
+                  <p className="font-medium">No results for “{searchTerm}”</p>
+                  <p className="text-sm mt-1">Try a different search term</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto rounded-lg border border-zinc-800">
+                  <table className="w-full text-sm">
+                    <thead className="bg-zinc-950 text-zinc-400">
+                      <tr>
+                        <th className="px-4 py-3 text-left font-medium">
+                          Symbol
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium">
+                          Exchange
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium">
+                          Category
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium">
+                          Interval
+                        </th>
+                        <th className="px-4 py-3 text-right font-medium">
+                          Records
+                        </th>
+                        <th className="px-4 py-3 text-right font-medium">
+                          Size
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium">
+                          Last Updated
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-800">
+                      {filteredDatasets.map((ds: DatasetCoverage) => (
+                        <tr
+                          key={`${ds.exchange}-${ds.category}-${ds.symbol}-${ds.interval}`}
+                          className="hover:bg-zinc-900/60 transition-colors"
+                        >
+                          <td className="px-4 py-3 font-mono font-medium text-zinc-100">
+                            {ds.symbol}
+                          </td>
+                          <td className="px-4 py-3 text-zinc-300">
+                            {ds.exchange}
+                          </td>
+                          <td className="px-4 py-3 text-zinc-300">
+                            {ds.category}
+                          </td>
+                          <td className="px-4 py-3 text-zinc-300">
+                            {ds.interval}
+                          </td>
+                          <td className="px-4 py-3 text-right font-medium text-zinc-100">
+                            {formatCompactNumber(ds.record_count)}
+                          </td>
+                          <td className="px-4 py-3 text-right text-zinc-300">
+                            {formatBytes(ds.approx_size_bytes)}
+                          </td>
+                          <td className="px-4 py-3 text-zinc-400 text-xs">
+                            {new Date(ds.last_updated).toLocaleDateString()}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
