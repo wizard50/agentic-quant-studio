@@ -10,20 +10,16 @@ A workspace for building agentic AI systems in quantitative finance and Web3.
     width="820" 
     style="max-width: 100%; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
 </div>
-<br/>
-<div align="center">
-  <img 
-    src="./assets/data-management-screenshot.png" 
-    alt="Data Management Screenshot" 
-    width="820" 
-    style="max-width: 100%; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
-</div>
 
 ---
 
 ## Current Status
 
 The project has two main areas:
+
+### Market Research (`/`)
+- Basic candle visualization using TradingView Lightweight Charts
+- Downsampling support
 
 ### Data Management (`/data`)
 The most developed part of the application right now:
@@ -34,9 +30,13 @@ The most developed part of the application right now:
 - **Ingestion job tracking** — background jobs with status (`pending` / `running` / `completed` / `failed`)
 - Toolbar with global search, market filters (Exchange/Category), and Quick Ingest toggle
 
-### Market Research (`/`)
-- Basic candle visualization using TradingView Lightweight Charts
-- Downsampling support
+<div>
+  <img 
+    src="./assets/data-management-screenshot.png" 
+    alt="Data Management Screenshot" 
+    width="820" 
+    style="max-width: 100%; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
+</div>
 
 ---
 
