@@ -25,7 +25,7 @@ pub async fn download_history(
 
     process_candle_batches(exchange, category, symbol, start_time, |candles| {
         all_candles.extend(candles);
-        Ok(())
+        async { Ok(()) }
     })
     .await?;
 
@@ -51,42 +51,37 @@ pub async fn store_history(
     start_time: Option<i64>,
     base_dir: impl AsRef<Path>,
 ) -> Result<()> {
-    let base = base_dir.as_ref();
+    let base = base_dir.as_ref().to_path_buf();
+    let exchange_str = exchange.as_str().to_string();
+    let category_str = category.as_str().to_string();
+    let symbol_string = symbol.to_string();
 
-    let mut buffer: Vec<Candle> = Vec::new();
-    const FLUSH_THRESHOLD: usize = 100_000;
+    let mut all_candles: Vec<Candle> = Vec::new();
 
     process_candle_batches(exchange, category, symbol, start_time, |candles| {
-        buffer.extend(candles);
-
-        if buffer.len() >= FLUSH_THRESHOLD {
-            buffer.sort_by_key(|c| c.timestamp);
-            write_candles_partitioned(
-                &buffer,
-                exchange.as_str(),
-                category.as_str(),
-                symbol,
-                "1min",
-                base,
-            )?;
-            buffer.clear();
-        }
-
-        Ok(())
+        all_candles.extend(candles);
+        async { Ok(()) }
     })
     .await?;
 
-    // flush remaining
-    if !buffer.is_empty() {
-        buffer.sort_by_key(|c| c.timestamp);
-        write_candles_partitioned(
-            &buffer,
-            exchange.as_str(),
-            category.as_str(),
-            symbol,
-            "1min",
-            base,
-        )?;
+    if !all_candles.is_empty() {
+        let base = base.clone();
+        let exchange_str = exchange_str.clone();
+        let category_str = category_str.clone();
+        let symbol_string = symbol_string.clone();
+        let candles = all_candles; // move
+
+        tokio::task::spawn_blocking(move || {
+            write_candles_partitioned(
+                &candles,
+                &exchange_str,
+                &category_str,
+                &symbol_string,
+                "1min",
+                &base,
+            )
+        })
+        .await??;
     }
 
     Ok(())
@@ -94,7 +89,7 @@ pub async fn store_history(
 
 /// Private helper: runs the full pagination logic and calls `batch_processor`
 /// for every batch of candles returned by the exchange.
-async fn process_candle_batches<F>(
+async fn process_candle_batches<F, Fut>(
     exchange: Exchange,
     category: MarketCategory,
     symbol: &str,
@@ -102,7 +97,8 @@ async fn process_candle_batches<F>(
     mut batch_processor: F,
 ) -> Result<()>
 where
-    F: FnMut(Vec<Candle>) -> Result<()>,
+    F: FnMut(Vec<Candle>) -> Fut,
+    Fut: std::future::Future<Output = Result<()>>,
 {
     let start_time = match start_time {
         Some(ts) => floor_to_minute_start(ts),
@@ -126,7 +122,7 @@ where
 
         let candles = client.get_candles(req).await?;
 
-        batch_processor(candles)?;
+        batch_processor(candles).await?;
 
         // polite rate limiting
         tokio::time::sleep(std::time::Duration::from_millis(200)).await;
