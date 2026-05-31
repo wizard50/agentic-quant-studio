@@ -25,6 +25,7 @@ serde = { version = "1", features = ["derive"] }
 reqwest = { version = "0.13", features = ["json", "query"] }
 polars = { version = "0.53", features = ["lazy", "parquet", "timezones"] }
 chrono = { version = "0.4" }
+serde_json = "1"
 
 # Web
 axum = "0.8"

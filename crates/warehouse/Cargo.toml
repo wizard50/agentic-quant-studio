@@ -11,6 +11,8 @@ api-client = { path = "../api-client" }
 thiserror.workspace = true
 tokio.workspace = true
 chrono.workspace = true
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
 polars = { workspace = true, features = ["dynamic_group_by", "partition_by"] } # "temporal"
 polars-utils = "0.53"
 

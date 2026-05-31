@@ -1,3 +1,4 @@
+pub mod catalog;
 pub mod config;
 pub mod handlers;
 pub mod models;
@@ -27,6 +28,7 @@ async fn main() -> Result<()> {
         .init();
 
     let config = Config::load()?;
+    let catalog = crate::catalog::init(&config).await?;
 
     let (job_tx, job_rx) = mpsc::channel::<IngestCandlesJob>(32);
 
@@ -34,6 +36,7 @@ async fn main() -> Result<()> {
         config,
         job_queue: job_tx,
         job_status: Arc::new(DashMap::new()),
+        catalog,
     };
 
     // Spawn worker
@@ -41,6 +44,7 @@ async fn main() -> Result<()> {
         job_rx,
         state.job_status.clone(),
         state.config.parquet_base_dir(),
+        state.catalog.clone(),
     ));
 
     let app = router::create_router(state.clone());

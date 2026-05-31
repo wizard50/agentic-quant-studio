@@ -70,3 +70,21 @@ pub enum Status {
     Completed,
     Failed,
 }
+
+impl Status {
+    /// Returns the canonical lowercase string representation used in the API.
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Status::Pending => "pending",
+            Status::Running => "running",
+            Status::Completed => "completed",
+            Status::Failed => "failed",
+        }
+    }
+}
+
+impl std::fmt::Display for Status {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
