@@ -15,17 +15,33 @@ A workspace for building agentic AI systems in quantitative finance and Web3.
 
 ## Current Status
 
-**Very early prototype (minimal demo)**
+The project has two main areas:
 
-What exists right now:
-- Rust backend (Axum) with candle data endpoints:
-  - `GET /api/v1/candles` — query historical candles (with downsampling)
-  - `POST /api/v1/candles/ingest` — trigger background candle ingestion (returns 202 Accepted)
-- Next.js frontend with a basic TradingView Lightweight Charts component
-- Downsampling support in the warehouse / backend (already selectable in the UI)
-- Manual seeding script (`cargo run -p backend --bin seed`) that loads the latest 7 days of data
+### Data Management (`/data`)
+The most developed part of the application right now:
 
-Most features are still in planning or not implemented yet.
+- **Live KPIs** powered by the catalog service (Total Datasets, Total Candles, Storage Used, Active Jobs)
+- **Searchable Datasets table** — shows all ingested datasets with symbol, interval, record count, and size
+- **Quick Ingest** — select symbols to ingest. The UI only offers symbols that are **not yet** present in the catalog for the chosen market
+- **Ingestion job tracking** — background jobs with status (`pending` / `running` / `completed` / `failed`)
+- Toolbar with global search, market filters (Exchange/Category), and Quick Ingest toggle
+
+### Market Research (`/`)
+- Basic candle visualization using TradingView Lightweight Charts
+- Downsampling support
+
+---
+
+### Backend Endpoints (v1)
+
+| Method | Endpoint                          | Description |
+|--------|-----------------------------------|-----------|
+| GET    | `/api/v1/candles`                 | Query historical candles |
+| POST   | `/api/v1/candles/ingest`          | Trigger candle ingestion |
+| GET    | `/api/v1/candles/ingest/jobs`     | List ingestion jobs (supports `?active=true`) |
+| GET    | `/api/v1/candles/ingest/jobs/{id}`| Get single job status |
+| GET    | `/api/v1/catalog/candles`         | Get full warehouse catalog snapshot |
+| POST   | `/api/v1/catalog/candles/refresh` | Trigger background catalog rescan |
 
 ---
 
@@ -54,10 +70,13 @@ The long-term goal is to build an intelligent workspace where users can interact
 ```bash
 git clone https://github.com/wizard50/agentic-quant-studio.git
 cd agentic-quant-studio
+```
 
-# Initial data seeding (optional)
-cargo run -p backend --bin seed
+The actively developed version lives in the main development iteration folder.
 
+From there:
+
+```bash
 # Backend
 cargo run -p backend
 
@@ -67,23 +86,38 @@ npm install
 npm run dev
 ```
 
-You can also trigger candle ingestion via the API:
+Open http://localhost:3000. The main Data Management interface is available at `/data`.
+
+### Example API usage
+
+Trigger ingestion:
 ```bash
-curl -X POST "http://localhost:3000/api/v1/candles/ingest?exchange=bybit&category=spot&symbol=BTCUSDT" -H "Accept: application/json" -w "\n\nHTTP Status: %{http_code}\n" -s
+curl -X POST "http://localhost:3000/api/v1/candles/ingest?exchange=bybit&category=spot&symbol=SOLUSDT"
+```
+
+Fetch current catalog snapshot:
+```bash
+curl -s http://localhost:3000/api/v1/catalog/candles | jq '.datasets | length'
 ```
 
 ---
 
 ## Project Structure
+
+The repository root (`agentic-quant-studio`) contains several iterations of the project. The actively developed version (with the Data Management UI) follows this structure:
+
 ```
-agentic-quant-studio/
-├── config/
-├── crates/          # Rust workspace crates
-│   ├── api-client/  # Exchange connectors (Bybit etc.)
-│   ├── backend/     # Axum API + candle endpoint
-│   ├── common/      # Shared types and utilities
-│   └── warehouse/   # Data handling & parquet storage
-├── frontend/        # Next.js UI
+/ (root)
+├── crates/
+│   ├── backend/      # Axum API (catalog, ingestion jobs, candles)
+│   ├── warehouse/    # Parquet storage + catalog builder
+│   ├── common/
+│   └── api-client/
+├── frontend/
+│   ├── app/
+│   │   ├── data/          # Data Management page (KPIs, table, Quick Ingest)
+│   │   └── page.tsx       # Market Research / charts
+│   └── ...
 └── README.md
 ```
 
