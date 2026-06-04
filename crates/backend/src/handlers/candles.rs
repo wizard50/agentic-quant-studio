@@ -1,19 +1,22 @@
-use crate::models::candle::CandleQuery;
+use crate::models::candle::{CandleLoad, CandlePathParams, CandleQueryParams};
 use crate::services::candle_service;
 use crate::state::AppState;
 use axum::{
     Json,
-    extract::{Query, State},
+    extract::{Path, Query, State},
     http::StatusCode,
 };
 use common::types::Candle;
 
 pub async fn list(
     State(state): State<AppState>,
-    Query(query): Query<CandleQuery>,
+    Path(path): Path<CandlePathParams>,
+    Query(query): Query<CandleQueryParams>,
 ) -> Result<Json<Vec<Candle>>, StatusCode> {
+    let request = CandleLoad::new(path, query);
+
     let candles =
-        tokio::task::spawn_blocking(move || candle_service::get_candles(&state.config, query))
+        tokio::task::spawn_blocking(move || candle_service::get_candles(&state.config, request))
             .await
             .map_err(|join_err| {
                 tracing::error!("Blocking task failed: {}", join_err);
