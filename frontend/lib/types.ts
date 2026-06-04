@@ -42,18 +42,22 @@ export interface CatalogSummary {
   lastUpdated: string | null;
 }
 
-// --- Ingestion Job types (from /v1/candles/ingest/jobs) ---
+// --- Ingestion Job types (from /api/backend/v1/jobs) ---
+// Matches backend JobInfo response (jobs are now generic, not tied to a single ingest payload shape).
 
-export type IngestJobStatus = "pending" | "running" | "completed" | "failed";
+export type JobStatus =
+  | "pending"
+  | "running"
+  | "completed"
+  | "failed"
+  | "cancelled";
 
-export interface IngestJob {
+export interface JobInfo {
   id: string;
-  exchange: string;
-  category: string;
-  symbol: string;
-  interval: string;
-  status: IngestJobStatus;
+  kind: string; // e.g. "ingest_candles"
+  status: JobStatus;
   created_at: string;
+  started_at: string | null;
   finished_at: string | null;
   error: string | null;
 }
