@@ -1,21 +1,19 @@
 pub mod catalog;
 pub mod config;
 pub mod handlers;
+pub mod jobs;
 pub mod models;
 pub mod router;
 pub mod services;
 pub mod state;
 
-use crate::services::{
-    candle_worker::candle_ingestion_worker, jobs::ingest_candles::IngestCandlesJob,
-};
+use crate::jobs::{context::JobContext, queue::JobQueue, types::Job, worker::run_worker};
 use anyhow::Result;
 use config::Config;
-use dashmap::DashMap;
 use state::AppState;
-use std::sync::Arc;
 use tokio::{net::TcpListener, sync::mpsc};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use uuid::Uuid;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -30,22 +28,23 @@ async fn main() -> Result<()> {
     let config = Config::load()?;
     let catalog = crate::catalog::init(&config).await?;
 
-    let (job_tx, job_rx) = mpsc::channel::<IngestCandlesJob>(32);
+    let (job_tx, job_rx) = mpsc::channel::<(Uuid, Job)>(32);
+    let job_queue = JobQueue::new(job_tx);
+
+    let ctx = JobContext {
+        parquet_base_dir: config.parquet_base_dir(),
+        catalog: catalog.clone(),
+        job_queue: job_queue.clone(),
+    };
 
     let state = AppState {
         config,
-        job_queue: job_tx,
-        job_status: Arc::new(DashMap::new()),
+        job_queue,
         catalog,
     };
 
     // Spawn worker
-    tokio::spawn(candle_ingestion_worker(
-        job_rx,
-        state.job_status.clone(),
-        state.config.parquet_base_dir(),
-        state.catalog.clone(),
-    ));
+    tokio::spawn(run_worker(job_rx, ctx));
 
     let app = router::create_router(state.clone());
 

@@ -8,9 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ChevronDown, Database, Play, RefreshCw, X } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useCatalogSummary } from "@/hooks/useCatalogSummary";
-import { useActiveJobSummary } from "@/hooks/useIngestionJobs";
-import { useDatasets } from "@/hooks/useCatalog";
+import { useCatalogSummary, useDatasets } from "@/hooks/useCatalog";
+import { useActiveJobSummary } from "@/hooks/useJobs";
 import { formatBytes, formatCompactNumber } from "@/lib/utils";
 import type { DatasetCoverage } from "@/lib/types";
 
@@ -96,7 +95,7 @@ export default function DataManagementPage() {
   const handleRefresh = () => {
     // Invalidate both data sources used on this page
     queryClient.invalidateQueries({ queryKey: ["catalog"] });
-    queryClient.invalidateQueries({ queryKey: ["ingest-jobs"] });
+    queryClient.invalidateQueries({ queryKey: ["jobs"] });
   };
 
   // Ingest handler
@@ -106,26 +105,32 @@ export default function DataManagementPage() {
     setIsIngesting(true);
 
     try {
-      // Call the endpoint once per symbol (current backend limitation)
+      // Call the endpoint once per symbol (current backend limitation:
+      // jobs are processed sequentially and duplicate-checked by signature).
       const results = await Promise.allSettled(
         validSelectedSymbols.map(async (symbol) => {
-          const params = new URLSearchParams({
-            exchange,
-            category,
-            symbol,
+          const res = await fetch("/api/backend/v1/jobs", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              type: "ingest_candles",
+              payload: {
+                exchange,
+                category,
+                symbol,
+              },
+            }),
           });
 
-          const res = await fetch(
-            `/api/backend/v1/candles/ingest?${params.toString()}`,
-            {
-              method: "POST",
-            },
-          );
-
-          if (!res.ok) {
-            throw new Error(`Failed for ${symbol}`);
+          // 409 means a job for this (exchange,category,symbol) is already active.
+          // Treat as non-fatal for the batch (user gets feedback via jobs list).
+          if (res.ok || res.status === 409) {
+            return symbol;
           }
-          return symbol;
+
+          throw new Error(`Failed for ${symbol} (status ${res.status})`);
         }),
       );
 
@@ -137,12 +142,12 @@ export default function DataManagementPage() {
         alert(`Successfully queued ingestion for ${successful} symbol(s).`);
         setSelectedSymbols([]); // Clear selection
         // Refresh the Active Jobs card
-        queryClient.invalidateQueries({ queryKey: ["ingest-jobs"] });
+        queryClient.invalidateQueries({ queryKey: ["jobs"] });
       } else {
         alert(
           `Ingestion queued for ${successful} symbol(s). ${failed} failed. Check console for details.`,
         );
-        queryClient.invalidateQueries({ queryKey: ["ingest-jobs"] });
+        queryClient.invalidateQueries({ queryKey: ["jobs"] });
       }
     } catch (error) {
       console.error("Ingest error:", error);

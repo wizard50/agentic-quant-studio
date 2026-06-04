@@ -1,9 +1,10 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import type { IngestJob } from "@/lib/types";
+import type { JobInfo } from "@/lib/types";
 
-export interface UseIngestionJobsOptions {
+export interface UseJobsOptions {
+  kind?: string;
   active?: boolean;
   status?: string; // comma-separated, e.g. "pending,running"
   limit?: number;
@@ -13,26 +14,27 @@ export interface ActiveJobSummary {
   totalActive: number;
   running: number;
   pending: number;
-  jobs: IngestJob[];
+  jobs: JobInfo[];
 }
 
 /**
  * Fetch ingestion jobs with optional filtering.
  * Use this when you need the full list or custom filters.
  */
-export function useIngestionJobs(options: UseIngestionJobsOptions = {}) {
-  const { active, status, limit } = options;
+export function useJobs(options: UseJobsOptions = {}) {
+  const { kind, active, status, limit } = options;
 
   const params = new URLSearchParams();
+  if (kind) params.set("kind", kind);
   if (active) params.set("active", "true");
   if (status) params.set("status", status);
   if (limit) params.set("limit", String(limit));
 
   const queryString = params.toString();
-  const url = `/api/backend/v1/candles/ingest/jobs${queryString ? `?${queryString}` : ""}`;
+  const url = `/api/backend/v1/jobs${queryString ? `?${queryString}` : ""}`;
 
-  return useQuery<IngestJob[]>({
-    queryKey: ["ingest-jobs", { active, status, limit }] as const,
+  return useQuery<JobInfo[]>({
+    queryKey: ["jobs", { kind, active, status, limit }] as const,
     queryFn: async () => {
       const res = await fetch(url);
       if (!res.ok) {
@@ -54,7 +56,11 @@ export function useActiveJobSummary(): {
   isLoading: boolean;
   error: Error | null;
 } {
-  const { data: jobs = [], isLoading, error } = useIngestionJobs({ active: true, limit: 100 });
+  const {
+    data: jobs = [],
+    isLoading,
+    error,
+  } = useJobs({ active: true, limit: 100 });
 
   const summary: ActiveJobSummary = {
     totalActive: jobs.length,

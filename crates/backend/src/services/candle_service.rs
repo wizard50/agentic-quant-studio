@@ -1,7 +1,10 @@
-use crate::{config::Config, models::candle::CandleQuery};
+use crate::{config::Config, jobs::types::IngestCandlesPayload, models::candle::CandleQuery};
 use anyhow::Result;
 use common::types::{Candle, Interval};
-use warehouse::parquet;
+use std::path::PathBuf;
+use tracing::info;
+use uuid::Uuid;
+use warehouse::{candle_downloader, parquet};
 
 pub fn get_candles(config: &Config, query: CandleQuery) -> Result<Vec<Candle>> {
     let parquet_base_dir = config.parquet_base_dir();
@@ -31,4 +34,32 @@ pub fn get_candles(config: &Config, query: CandleQuery) -> Result<Vec<Candle>> {
     };
 
     Ok(candles)
+}
+
+pub async fn execute_ingestion(
+    payload: &IngestCandlesPayload,
+    from: Option<i64>,
+    base_dir: &PathBuf,
+    job_id: Uuid,
+) -> Result<(), warehouse::error::Error> {
+    if let Some(from_ts) = from {
+        info!(job_id = %job_id, from = %from_ts, "Incremental ingestion");
+        candle_downloader::store_history(
+            payload.exchange,
+            payload.category,
+            &payload.symbol,
+            Some(from_ts),
+            base_dir.clone(),
+        )
+        .await
+    } else {
+        info!(job_id = %job_id, "Full history ingestion");
+        candle_downloader::store_full_history(
+            payload.exchange,
+            payload.category,
+            &payload.symbol,
+            base_dir.clone(),
+        )
+        .await
+    }
 }

@@ -1,5 +1,4 @@
 use crate::state::AppState;
-use anyhow::Result;
 use axum::{Json, extract::State, http::StatusCode};
 use warehouse::catalog::CatalogSnapshot;
 

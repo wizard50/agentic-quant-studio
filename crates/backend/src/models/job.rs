@@ -1,49 +1,43 @@
+use crate::jobs::types::JobRecord;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::services::jobs::ingest_candles::JobStatus;
+#[derive(Debug, Default, Deserialize)]
+pub struct JobQuery {
+    pub kind: Option<String>,
+    pub status: Option<String>,
+    pub limit: Option<u32>,
+    pub active: Option<bool>,
+}
 
-/// Public API representation of a candle ingestion job.
 #[derive(Debug, Serialize)]
-pub struct IngestJob {
-    pub id: String,
-    pub exchange: String,
-    pub category: String,
-    pub symbol: String,
-    pub interval: String,
-    /// One of: "pending", "running", "completed", "failed"
+pub struct JobCreateResponse {
+    pub job_id: String,
+    pub status: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct JobInfo {
+    pub id: Uuid,
+    pub kind: String,
     pub status: String,
     pub created_at: DateTime<Utc>,
+    pub started_at: Option<DateTime<Utc>>,
     pub finished_at: Option<DateTime<Utc>>,
     pub error: Option<String>,
 }
 
-impl IngestJob {
-    pub fn from_status(id: Uuid, status: &JobStatus) -> Self {
-        let (exchange, category, symbol, interval, _from, _to) = &status.key;
-
+impl From<JobRecord> for JobInfo {
+    fn from(record: JobRecord) -> Self {
         Self {
-            id: id.to_string(),
-            exchange: exchange.as_str().to_string(),
-            category: category.as_str().to_string(),
-            symbol: symbol.clone(),
-            interval: interval.to_string(),
-            status: status.status.as_str().to_string(),
-            created_at: status.created_at,
-            finished_at: status.finished_at,
-            error: status.error.clone(),
+            id: record.id,
+            kind: record.job.kind().to_string(),
+            status: record.status.to_string(),
+            created_at: record.created_at,
+            started_at: record.started_at,
+            finished_at: record.finished_at,
+            error: record.error,
         }
     }
-}
-
-/// Query parameters for listing ingestion jobs.
-#[derive(Debug, Default, Deserialize)]
-pub struct IngestJobListQuery {
-    /// Filter by status (comma-separated, e.g. "pending,running")
-    pub status: Option<String>,
-    /// Maximum number of jobs to return (default 100, max 500)
-    pub limit: Option<u32>,
-    /// Return only active jobs (pending + running)
-    pub active: Option<bool>,
 }
