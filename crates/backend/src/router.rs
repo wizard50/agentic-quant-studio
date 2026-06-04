@@ -41,7 +41,10 @@ pub fn create_router(state: AppState) -> Router {
 
 fn api_routes() -> Router<AppState> {
     Router::new()
-        .route("/candles", get(candles::list))
+        .route(
+            "/candles/{exchange}/{category}/{symbol}/{interval}",
+            get(candles::list),
+        )
         .route("/jobs", post(jobs::create_job))
         .route("/jobs", get(jobs::list_jobs))
         .route("/jobs/{id}", get(jobs::get_job))

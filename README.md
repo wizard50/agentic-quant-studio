@@ -78,7 +78,7 @@ Base path: `/api/v1`. Default server: `http://127.0.0.1:3000` (see [Getting star
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/candles` | Query historical candles from Parquet |
+| GET | `/candles/{exchange}/{category}/{symbol}/{interval}` | Load historical candles from Parquet — optional query: `?start=`, `?end=`, `?limit=` |
 | POST | `/jobs` | Enqueue a job (JSON body, see below) |
 | GET | `/jobs` | List jobs — `?kind=`, `?active=true`, `?status=pending,running`, `?limit=` (max 500) |
 | GET | `/jobs/{id}` | Single job status |
@@ -162,8 +162,8 @@ Open http://localhost:3001 — Data Management is at `/data`.
 # Catalog size
 curl -s http://127.0.0.1:3000/api/v1/catalog/candles | jq '.datasets | length'
 
-# Query candles (parameters depend on your stored data)
-curl -s "http://127.0.0.1:3000/api/v1/candles?exchange=bybit&category=spot&symbol=BTCUSDT&interval=1m&limit=100" | jq 'length'
+# Load candles (path = dataset identity; query = optional window/limit)
+curl -s "http://127.0.0.1:3000/api/v1/candles/bybit/spot/BTCUSDT/1m?limit=100" | jq 'length'
 ```
 
 ---

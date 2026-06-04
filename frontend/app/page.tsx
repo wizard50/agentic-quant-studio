@@ -38,13 +38,11 @@ export default function QuantResearchDashboard() {
     queryKey: ["candles", exchange, category, symbol, interval, limit],
     queryFn: async () => {
       const params = new URLSearchParams({
-        exchange,
-        category,
-        symbol,
-        interval,
         limit: limit.toString(),
       });
-      const res = await fetch(`/api/backend/v1/candles?${params}`);
+      const res = await fetch(
+        `/api/backend/v1/candles/${exchange}/${category}/${symbol}/${interval}?${params}`,
+      );
       if (!res.ok) throw new Error("Failed to fetch candles");
       return res.json();
     },
