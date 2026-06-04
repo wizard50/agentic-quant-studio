@@ -167,16 +167,16 @@ pub fn load_candles(
         lf = lf.filter(col("timestamp").lt_eq(lit(et)));
     }
 
+    lf = lf.sort(
+        ["timestamp"],
+        SortMultipleOptions::default().with_order_descending(false),
+    );
+
     if let Some(lim) = limit {
         lf = lf.tail(lim as u32);
     }
 
     let df = lf.collect()?;
-
-    let df = df.sort(
-        &["timestamp"],
-        SortMultipleOptions::default().with_order_descending(false),
-    )?;
 
     dataframe_to_candles(df)
 }
@@ -331,7 +331,7 @@ pub fn resample_candles(df: DataFrame, target_interval: Interval) -> Result<Data
             col("volume"),
         ])
         .sort(
-            vec!["timestamp"], // ← THIS WAS THE FIX (vec! instead of &[])
+            vec!["timestamp"],
             SortMultipleOptions::default().with_order_descending(false),
         )
         .collect()?;
