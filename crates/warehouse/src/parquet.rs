@@ -295,6 +295,10 @@ pub fn resample_candles(df: DataFrame, target_interval: Interval) -> Result<Data
 
     let resampled = df
         .lazy()
+        .sort(
+            ["timestamp"],
+            SortMultipleOptions::default().with_order_descending(false),
+        )
         .with_column(
             col("timestamp")
                 .cast(DataType::Datetime(TimeUnit::Milliseconds, None))
