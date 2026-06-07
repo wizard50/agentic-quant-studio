@@ -355,6 +355,7 @@ pub fn load_resampled_candles(
     target_interval: Interval, // ← your existing enum!
     start_time: Option<i64>,
     end_time: Option<i64>,
+    limit: Option<usize>,
 ) -> Result<Vec<Candle>> {
     let df_1min = {
         let base = base_dir.as_ref();
@@ -384,7 +385,11 @@ pub fn load_resampled_candles(
         lf.collect()?
     };
 
-    let df_resampled = resample_candles(df_1min, target_interval)?;
+    let mut df_resampled = resample_candles(df_1min, target_interval)?;
+
+    if let Some(lim) = limit {
+        df_resampled = df_resampled.tail(Some(lim));
+    }
 
     dataframe_to_candles(df_resampled)
 }

@@ -21,7 +21,6 @@ pub fn get_candles(config: &Config, query: CandleLoad) -> Result<Vec<Candle>> {
             query.limit.map(|v| v as usize),
         )?
     } else {
-        // TODO: limit
         parquet::load_resampled_candles(
             parquet_base_dir,
             query.exchange.as_str(),
@@ -30,6 +29,7 @@ pub fn get_candles(config: &Config, query: CandleLoad) -> Result<Vec<Candle>> {
             query.interval,
             query.start.map(|dt| dt.timestamp_millis()),
             query.end.map(|dt| dt.timestamp_millis()),
+            query.limit.map(|v| v as usize),
         )?
     };
 
