@@ -125,7 +125,7 @@ fn write_hive_partitioned_parquet(df: DataFrame, base_path: &Path) -> Result<()>
 
 /// Loads 1min candles from the Hive-partitioned Parquet files.
 ///
-/// - If the directory doesn't exist → returns empty vec
+/// - If the directory doesn't exist → returns `Error::DatasetNotFound`
 /// - Supports optional time range filter (predicate push-down + Parquet statistics)
 /// - Returns candles **sorted by timestamp**
 pub fn load_candles(
@@ -147,7 +147,7 @@ pub fn load_candles(
         .join(interval);
 
     if !symbol_path.exists() {
-        return Ok(vec![]);
+        return Err(Error::DatasetNotFound);
     }
 
     let glob_pattern = symbol_path
@@ -362,7 +362,7 @@ pub fn load_resampled_candles(
         let symbol_path = base.join(exchange).join(category).join(symbol).join("1min"); // we always read the 1min folder
 
         if !symbol_path.exists() {
-            return Ok(vec![]);
+            return Err(Error::DatasetNotFound);
         }
 
         let glob_pattern = symbol_path
@@ -392,4 +392,44 @@ pub fn load_resampled_candles(
     }
 
     dataframe_to_candles(df_resampled)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::Path;
+
+    #[test]
+    fn load_candles_returns_not_found_for_missing_dataset() {
+        let err = load_candles(
+            Path::new("/tmp/nonexistent-parquet-root"),
+            "bybit",
+            "spot",
+            "NOPE",
+            "1min",
+            None,
+            None,
+            None,
+        )
+        .unwrap_err();
+
+        assert!(matches!(err, Error::DatasetNotFound));
+    }
+
+    #[test]
+    fn load_resampled_candles_returns_not_found_for_missing_dataset() {
+        let err = load_resampled_candles(
+            Path::new("/tmp/nonexistent-parquet-root"),
+            "bybit",
+            "spot",
+            "NOPE",
+            Interval::Hour(1),
+            None,
+            None,
+            None,
+        )
+        .unwrap_err();
+
+        assert!(matches!(err, Error::DatasetNotFound));
+    }
 }
