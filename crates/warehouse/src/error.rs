@@ -28,6 +28,9 @@ pub enum Error {
 
     #[error("failed to read or write catalog.json: {0}")]
     CatalogPersistence(String),
+
+    #[error("candle dataset not found")]
+    DatasetNotFound,
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

@@ -46,7 +46,7 @@ pub struct Candle {
 }
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(try_from = "String"))]
+#[cfg_attr(feature = "serde", serde(into = "String", try_from = "String"))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Interval {
     Second(u32),
@@ -117,6 +117,13 @@ impl FromStr for Interval {
 }
 
 #[cfg(feature = "serde")]
+impl From<Interval> for String {
+    fn from(value: Interval) -> String {
+        value.to_string()
+    }
+}
+
+#[cfg(feature = "serde")]
 impl TryFrom<String> for Interval {
     type Error = String;
 
@@ -126,7 +133,7 @@ impl TryFrom<String> for Interval {
 }
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(try_from = "String"))]
+#[cfg_attr(feature = "serde", serde(into = "String", try_from = "String"))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum MarketCategory {
     Spot,
@@ -181,6 +188,13 @@ impl FromStr for MarketCategory {
             "option" => Ok(MarketCategory::Option),
             other => Err(format!("Unknown MarketCategory: {}", other)),
         }
+    }
+}
+
+#[cfg(feature = "serde")]
+impl From<MarketCategory> for String {
+    fn from(value: MarketCategory) -> String {
+        value.as_str().to_string()
     }
 }
 

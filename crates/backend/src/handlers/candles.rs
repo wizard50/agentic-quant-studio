@@ -14,6 +14,7 @@ pub async fn list(
     Query(query): Query<CandleQueryParams>,
 ) -> Result<Json<Vec<Candle>>, StatusCode> {
     let request = CandleLoad::new(path, query);
+    let request_for_log = request.clone();
 
     let candles =
         tokio::task::spawn_blocking(move || candle_service::get_candles(&state.config, request))
@@ -22,9 +23,15 @@ pub async fn list(
                 tracing::error!("Blocking task failed: {}", join_err);
                 StatusCode::INTERNAL_SERVER_ERROR
             })?
-            .map_err(|e| {
-                tracing::error!("Failed to load candles: {}", e);
-                StatusCode::INTERNAL_SERVER_ERROR
+            .map_err(|e| match e {
+                warehouse::error::Error::DatasetNotFound => {
+                    tracing::warn!("Candle dataset not found: {:?}", request_for_log);
+                    StatusCode::NOT_FOUND
+                }
+                other => {
+                    tracing::error!("Failed to load candles: {}", other);
+                    StatusCode::INTERNAL_SERVER_ERROR
+                }
             })?;
 
     Ok(Json(candles))

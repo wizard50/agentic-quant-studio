@@ -1,12 +1,11 @@
 use crate::{config::Config, jobs::types::IngestCandlesPayload, models::candle::CandleLoad};
-use anyhow::Result;
 use common::types::{Candle, Interval};
 use std::path::PathBuf;
 use tracing::info;
 use uuid::Uuid;
 use warehouse::{candle_downloader, parquet};
 
-pub fn get_candles(config: &Config, query: CandleLoad) -> Result<Vec<Candle>> {
+pub fn get_candles(config: &Config, query: CandleLoad) -> warehouse::error::Result<Vec<Candle>> {
     let parquet_base_dir = config.parquet_base_dir();
 
     let candles = if query.interval == Interval::Minute(1) {
@@ -41,7 +40,7 @@ pub async fn execute_ingestion(
     from: Option<i64>,
     base_dir: &PathBuf,
     job_id: Uuid,
-) -> Result<(), warehouse::error::Error> {
+) -> warehouse::error::Result<()> {
     if let Some(from_ts) = from {
         info!(job_id = %job_id, from = %from_ts, "Incremental ingestion");
         candle_downloader::store_history(
