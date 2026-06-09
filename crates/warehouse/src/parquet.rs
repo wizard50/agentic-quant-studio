@@ -230,6 +230,54 @@ fn dataframe_to_candles(df: DataFrame) -> Result<Vec<Candle>> {
     Ok(candles)
 }
 
+/// Returns the earliest and latest timestamps (milliseconds) stored for a dataset.
+///
+/// Returns `None` if the directory doesn't exist or contains no rows.
+pub fn dataset_time_bounds(
+    base_dir: impl AsRef<Path>,
+    exchange: &str,
+    category: &str,
+    symbol: &str,
+    interval: &str,
+) -> Result<Option<(i64, i64)>> {
+    let base = base_dir.as_ref();
+
+    let symbol_path = base
+        .join(exchange)
+        .join(category)
+        .join(symbol)
+        .join(interval);
+
+    if !symbol_path.exists() {
+        return Ok(None);
+    }
+
+    let glob_pattern = symbol_path
+        .join("year=*")
+        .join("month=*")
+        .join("day=*")
+        .join("data.parquet");
+
+    let glob_str = glob_pattern.to_str().ok_or(Error::InvalidGlob)?;
+
+    let lf = LazyFrame::scan_parquet(PlRefPath::new(glob_str), Default::default())?;
+
+    let stats_df = lf
+        .select([
+            col("timestamp").min().alias("from"),
+            col("timestamp").max().alias("to"),
+        ])
+        .collect()?;
+
+    let from = stats_df.column("from")?.i64()?.get(0);
+    let to = stats_df.column("to")?.i64()?.get(0);
+
+    match (from, to) {
+        (Some(from), Some(to)) => Ok(Some((from, to))),
+        _ => Ok(None),
+    }
+}
+
 /// Returns the timestamp (in milliseconds) of the **most recent** candle
 /// already stored in the Hive-partitioned Parquet files for this symbol.
 ///
