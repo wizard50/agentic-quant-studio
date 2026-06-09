@@ -31,6 +31,9 @@ pub enum Error {
 
     #[error("candle dataset not found")]
     DatasetNotFound,
+
+    #[error("invalid candle query: {0}")]
+    InvalidCandleQuery(String),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
