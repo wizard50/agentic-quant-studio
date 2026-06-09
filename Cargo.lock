@@ -4066,6 +4066,7 @@ dependencies = [
  "chrono",
  "common",
  "polars",
+ "polars-buffer",
  "polars-utils",
  "serde",
  "serde_json",

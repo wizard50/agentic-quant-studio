@@ -1,9 +1,14 @@
 use crate::error::{Error, Result};
+use chrono::{DateTime, Datelike, NaiveDate, Utc};
 use common::types::{Candle, Interval};
 use polars::prelude::*;
+use polars_buffer::Buffer;
 use polars_utils::pl_path::PlRefPath;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+
+/// Extra calendar days included on each side when mapping a time range to day partitions.
+const PARTITION_DAY_BUFFER: i64 = 1;
 
 /// Writes a batch of candles to Hive-partitioned Parquet files:
 /// `base_dir/{exchange}/{category}/{symbol}/{interval}/year=YYYY/month=MM/day=DD/data.parquet`
@@ -123,6 +128,114 @@ fn write_hive_partitioned_parquet(df: DataFrame, base_path: &Path) -> Result<()>
     Ok(())
 }
 
+/// Returns existing Hive day-partition Parquet files overlapping a millisecond range.
+pub fn partition_files_for_range(dataset_root: &Path, start_ms: i64, end_ms: i64) -> Vec<PathBuf> {
+    let Some(start_date) = utc_date_from_millis(start_ms) else {
+        return Vec::new();
+    };
+    let Some(end_date) = utc_date_from_millis(end_ms) else {
+        return Vec::new();
+    };
+
+    let (range_start, range_end) = if start_date <= end_date {
+        (start_date, end_date)
+    } else {
+        (end_date, start_date)
+    };
+
+    let buffered_start = range_start - chrono::Duration::days(PARTITION_DAY_BUFFER);
+    let buffered_end = range_end + chrono::Duration::days(PARTITION_DAY_BUFFER);
+
+    let mut paths = Vec::new();
+    let mut current = buffered_start;
+
+    while current <= buffered_end {
+        let path = partition_file_path(dataset_root, current);
+        if path.is_file() {
+            paths.push(path);
+        }
+        current += chrono::Duration::days(1);
+    }
+
+    paths
+}
+
+fn utc_date_from_millis(timestamp_ms: i64) -> Option<NaiveDate> {
+    DateTime::<Utc>::from_timestamp_millis(timestamp_ms).map(|dt| dt.date_naive())
+}
+
+fn partition_file_path(dataset_root: &Path, date: NaiveDate) -> PathBuf {
+    dataset_root
+        .join(format!("year={:04}", date.year()))
+        .join(format!("month={:02}", date.month()))
+        .join(format!("day={:02}", date.day()))
+        .join("data.parquet")
+}
+
+fn dataset_glob_pattern(dataset_root: &Path) -> Result<String> {
+    dataset_root
+        .join("year=*")
+        .join("month=*")
+        .join("day=*")
+        .join("data.parquet")
+        .to_str()
+        .map(str::to_string)
+        .ok_or(Error::InvalidGlob)
+}
+
+fn scan_dataset_parquet(
+    dataset_root: &Path,
+    start_time: Option<i64>,
+    end_time: Option<i64>,
+) -> Result<LazyFrame> {
+    match (start_time, end_time) {
+        (Some(start), Some(end)) => {
+            let paths = partition_files_for_range(dataset_root, start, end);
+            scan_parquet_paths(&paths)
+        }
+        _ => {
+            let glob = dataset_glob_pattern(dataset_root)?;
+            Ok(LazyFrame::scan_parquet(
+                PlRefPath::new(glob.as_str()),
+                Default::default(),
+            )?)
+        }
+    }
+}
+
+fn scan_parquet_paths(paths: &[PathBuf]) -> Result<LazyFrame> {
+    if paths.is_empty() {
+        return Ok(DataFrame::empty().lazy());
+    }
+
+    if paths.len() == 1 {
+        let path = PlRefPath::try_from_path(&paths[0]).map_err(Error::Polars)?;
+        return Ok(LazyFrame::scan_parquet(path, Default::default())?);
+    }
+
+    let refs = paths
+        .iter()
+        .map(|path| PlRefPath::try_from_path(path))
+        .collect::<std::result::Result<Buffer<_>, _>>()
+        .map_err(Error::Polars)?;
+
+    Ok(LazyFrame::scan_parquet_files(refs, Default::default())?)
+}
+
+fn apply_time_filters(
+    mut lf: LazyFrame,
+    start_time: Option<i64>,
+    end_time: Option<i64>,
+) -> LazyFrame {
+    if let Some(st) = start_time {
+        lf = lf.filter(col("timestamp").gt_eq(lit(st)));
+    }
+    if let Some(et) = end_time {
+        lf = lf.filter(col("timestamp").lt_eq(lit(et)));
+    }
+    lf
+}
+
 /// Loads 1min candles from the Hive-partitioned Parquet files.
 ///
 /// - If the directory doesn't exist → returns `Error::DatasetNotFound`
@@ -150,22 +263,8 @@ pub fn load_candles(
         return Err(Error::DatasetNotFound);
     }
 
-    let glob_pattern = symbol_path
-        .join("year=*")
-        .join("month=*")
-        .join("day=*")
-        .join("data.parquet");
-
-    let glob_str = glob_pattern.to_str().ok_or(Error::InvalidGlob)?;
-
-    let mut lf = LazyFrame::scan_parquet(PlRefPath::new(glob_str), Default::default())?;
-
-    if let Some(st) = start_time {
-        lf = lf.filter(col("timestamp").gt_eq(lit(st)));
-    }
-    if let Some(et) = end_time {
-        lf = lf.filter(col("timestamp").lt_eq(lit(et)));
-    }
+    let mut lf = scan_dataset_parquet(&symbol_path, start_time, end_time)?;
+    lf = apply_time_filters(lf, start_time, end_time);
 
     lf = lf.sort(
         ["timestamp"],
@@ -252,15 +351,8 @@ pub fn dataset_time_bounds(
         return Ok(None);
     }
 
-    let glob_pattern = symbol_path
-        .join("year=*")
-        .join("month=*")
-        .join("day=*")
-        .join("data.parquet");
-
-    let glob_str = glob_pattern.to_str().ok_or(Error::InvalidGlob)?;
-
-    let lf = LazyFrame::scan_parquet(PlRefPath::new(glob_str), Default::default())?;
+    let glob = dataset_glob_pattern(&symbol_path)?;
+    let lf = LazyFrame::scan_parquet(PlRefPath::new(glob.as_str()), Default::default())?;
 
     let stats_df = lf
         .select([
@@ -301,16 +393,10 @@ pub fn last_candle_timestamp_in_parquet(
         return Ok(None);
     }
 
-    let glob_pattern = symbol_path
-        .join("year=*")
-        .join("month=*")
-        .join("day=*")
-        .join("data.parquet");
-
-    let glob_str = glob_pattern.to_str().ok_or(Error::InvalidGlob)?;
+    let glob = dataset_glob_pattern(&symbol_path)?;
 
     // This is the exact type Polars expects
-    let lf = LazyFrame::scan_parquet(PlRefPath::new(glob_str), Default::default())?;
+    let lf = LazyFrame::scan_parquet(PlRefPath::new(glob.as_str()), Default::default())?;
 
     let df = lf
         .select([col("timestamp").max().alias("max_ts")])
@@ -405,33 +491,16 @@ pub fn load_resampled_candles(
     end_time: Option<i64>,
     limit: Option<usize>,
 ) -> Result<Vec<Candle>> {
-    let df_1min = {
-        let base = base_dir.as_ref();
-        let symbol_path = base.join(exchange).join(category).join(symbol).join("1min"); // we always read the 1min folder
+    let base = base_dir.as_ref();
+    let symbol_path = base.join(exchange).join(category).join(symbol).join("1min");
 
-        if !symbol_path.exists() {
-            return Err(Error::DatasetNotFound);
-        }
+    if !symbol_path.exists() {
+        return Err(Error::DatasetNotFound);
+    }
 
-        let glob_pattern = symbol_path
-            .join("year=*")
-            .join("month=*")
-            .join("day=*")
-            .join("data.parquet");
-
-        let glob_str = glob_pattern.to_str().ok_or(Error::InvalidGlob)?;
-
-        let mut lf = LazyFrame::scan_parquet(PlRefPath::new(glob_str), Default::default())?;
-
-        if let Some(st) = start_time {
-            lf = lf.filter(col("timestamp").gt_eq(lit(st)));
-        }
-        if let Some(et) = end_time {
-            lf = lf.filter(col("timestamp").lt_eq(lit(et)));
-        }
-
-        lf.collect()?
-    };
+    let mut lf = scan_dataset_parquet(&symbol_path, start_time, end_time)?;
+    lf = apply_time_filters(lf, start_time, end_time);
+    let df_1min = lf.collect()?;
 
     let mut df_resampled = resample_candles(df_1min, target_interval)?;
 
@@ -445,7 +514,138 @@ pub fn load_resampled_candles(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::{TimeZone, Utc};
     use std::path::Path;
+    use tempfile::TempDir;
+
+    fn make_test_candles(n: usize, start_ts: i64) -> Vec<Candle> {
+        (0..n)
+            .map(|i| Candle {
+                timestamp: start_ts + (i as i64 * 60_000),
+                open: 100.0 + i as f64,
+                high: 101.0 + i as f64,
+                low: 99.0 + i as f64,
+                close: 100.5 + i as f64,
+                volume: 1_000.0,
+            })
+            .collect()
+    }
+
+    fn utc_ms(year: i32, month: u32, day: u32, hour: u32, minute: u32) -> i64 {
+        Utc.with_ymd_and_hms(year, month, day, hour, minute, 0)
+            .unwrap()
+            .timestamp_millis()
+    }
+
+    #[test]
+    fn partition_files_for_range_selects_only_overlapping_days() {
+        let temp = TempDir::new().unwrap();
+        let dataset_root = temp.path().join("bybit/spot/BTCUSDT/1min");
+
+        let day_one_start = utc_ms(2024, 6, 8, 0, 0);
+        let day_two_start = utc_ms(2024, 6, 9, 0, 0);
+        let day_three_start = utc_ms(2024, 6, 10, 0, 0);
+
+        write_candles_partitioned(
+            &make_test_candles(10, day_one_start),
+            "bybit",
+            "spot",
+            "BTCUSDT",
+            "1min",
+            temp.path(),
+        )
+        .unwrap();
+        write_candles_partitioned(
+            &make_test_candles(10, day_two_start),
+            "bybit",
+            "spot",
+            "BTCUSDT",
+            "1min",
+            temp.path(),
+        )
+        .unwrap();
+        write_candles_partitioned(
+            &make_test_candles(10, day_three_start),
+            "bybit",
+            "spot",
+            "BTCUSDT",
+            "1min",
+            temp.path(),
+        )
+        .unwrap();
+
+        let paths = partition_files_for_range(
+            &dataset_root,
+            utc_ms(2024, 6, 9, 1, 0),
+            utc_ms(2024, 6, 9, 2, 0),
+        );
+
+        assert_eq!(paths.len(), 3);
+        let rendered: Vec<String> = paths
+            .iter()
+            .map(|path| path.to_string_lossy().into_owned())
+            .collect();
+        assert!(rendered.iter().any(|path| path.contains("day=08")));
+        assert!(rendered.iter().any(|path| path.contains("day=09")));
+        assert!(rendered.iter().any(|path| path.contains("day=10")));
+    }
+
+    #[test]
+    fn load_candles_uses_partition_pruning_for_bounded_queries() {
+        let temp = TempDir::new().unwrap();
+
+        let day_one_start = utc_ms(2024, 6, 8, 0, 0);
+        let day_two_start = utc_ms(2024, 6, 9, 0, 0);
+        let day_three_start = utc_ms(2024, 6, 10, 0, 0);
+
+        write_candles_partitioned(
+            &make_test_candles(5, day_one_start),
+            "bybit",
+            "spot",
+            "BTCUSDT",
+            "1min",
+            temp.path(),
+        )
+        .unwrap();
+        write_candles_partitioned(
+            &make_test_candles(5, day_two_start),
+            "bybit",
+            "spot",
+            "BTCUSDT",
+            "1min",
+            temp.path(),
+        )
+        .unwrap();
+        write_candles_partitioned(
+            &make_test_candles(5, day_three_start),
+            "bybit",
+            "spot",
+            "BTCUSDT",
+            "1min",
+            temp.path(),
+        )
+        .unwrap();
+
+        let candles = load_candles(
+            temp.path(),
+            "bybit",
+            "spot",
+            "BTCUSDT",
+            "1min",
+            Some(day_two_start),
+            Some(day_two_start + 4 * 60_000),
+            None,
+        )
+        .unwrap();
+
+        assert_eq!(candles.len(), 5);
+        assert!(candles.iter().all(|c| c.timestamp >= day_two_start));
+        assert!(
+            candles
+                .iter()
+                .all(|c| c.timestamp <= day_two_start + 4 * 60_000)
+        );
+    }
 
     #[test]
     fn load_candles_returns_not_found_for_missing_dataset() {
