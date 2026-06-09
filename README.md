@@ -29,7 +29,7 @@ The name reflects the **long-term vision** (see [Vision](#vision)); the implemen
 ### Market Research (`/`)
 
 - Candle chart (TradingView Lightweight Charts) backed by stored Parquet data
-- Exchange / category / symbol / interval / limit controls
+- Exchange / category / symbol / interval controls
 - Resampling for intervals other than 1m (warehouse layer)
 
 ### Data Management (`/data`)

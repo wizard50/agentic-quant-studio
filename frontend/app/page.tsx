@@ -1,11 +1,10 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
-import { CandleChart } from "@/components/chart/CandleChart";
+import { useEffect, useMemo } from "react";
+import { CandleChartPanel } from "@/components/chart/CandleChartPanel";
+import { NoDatasetsMessage } from "@/components/chart/NoDatasetsMessage";
 import { useTradingStore } from "@/stores/useTradingStore";
-import type { Candle } from "@/lib/types";
-
-import { Input } from "@/components/ui/input";
+import { getMarketSymbols, useDatasets } from "@/hooks/useCatalog";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -22,36 +21,47 @@ export default function QuantResearchDashboard() {
     category,
     symbol,
     interval,
-    limit,
     setExchange,
     setCategory,
     setSymbol,
     setInterval,
-    setLimit,
   } = useTradingStore();
 
   const {
-    data: candles = [],
-    isLoading,
-    error,
-  } = useQuery<Candle[]>({
-    queryKey: ["candles", exchange, category, symbol, interval, limit],
-    queryFn: async () => {
-      const params = new URLSearchParams({
-        limit: limit.toString(),
-      });
-      const res = await fetch(
-        `/api/backend/v1/candles/${exchange}/${category}/${symbol}/${interval}?${params}`,
-      );
-      if (!res.ok) throw new Error("Failed to fetch candles");
-      return res.json();
-    },
-    enabled: !!symbol,
-  });
+    datasets,
+    isLoading: catalogLoading,
+    error: catalogError,
+  } = useDatasets();
+
+  const catalogSymbols = useMemo(
+    () => getMarketSymbols(datasets, exchange, category),
+    [datasets, exchange, category],
+  );
+
+  const availableSymbols = catalogLoading
+    ? symbol
+      ? [symbol]
+      : []
+    : catalogSymbols;
+
+  const activeSymbol =
+    availableSymbols.length === 0
+      ? ""
+      : availableSymbols.includes(symbol)
+        ? symbol
+        : availableSymbols[0];
+
+  useEffect(() => {
+    if (catalogLoading) {
+      return;
+    }
+    if (activeSymbol && activeSymbol !== symbol) {
+      setSymbol(activeSymbol);
+    }
+  }, [catalogLoading, activeSymbol, symbol, setSymbol]);
 
   return (
     <DashboardShell>
-      {/* Top bar */}
       <header className="h-14 border-b border-zinc-800 bg-zinc-900 px-6 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <h1 className="text-xl font-semibold tracking-tight">
@@ -63,7 +73,6 @@ export default function QuantResearchDashboard() {
         </div>
       </header>
 
-      {/* Compact Controls */}
       <div className="h-14 border-b border-zinc-800 bg-zinc-900 px-6 flex items-center gap-6 text-sm">
         <div className="flex items-center gap-2">
           <Label className="text-zinc-400 w-16">Exchange</Label>
@@ -91,11 +100,24 @@ export default function QuantResearchDashboard() {
 
         <div className="flex items-center gap-2">
           <Label className="text-zinc-400 w-12">Symbol</Label>
-          <Input
-            value={symbol}
-            onChange={(e) => setSymbol(e.target.value.toUpperCase())}
-            className="w-28 font-mono h-8"
-          />
+          <Select
+            value={activeSymbol || undefined}
+            onValueChange={setSymbol}
+            disabled={!catalogLoading && catalogSymbols.length === 0}
+          >
+            <SelectTrigger className="w-36 font-mono">
+              <SelectValue
+                placeholder={catalogLoading ? "Loading..." : "No symbols"}
+              />
+            </SelectTrigger>
+            <SelectContent>
+              {availableSymbols.map((s) => (
+                <SelectItem key={s} value={s}>
+                  {s}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="flex items-center gap-2">
@@ -114,43 +136,34 @@ export default function QuantResearchDashboard() {
             </SelectContent>
           </Select>
         </div>
+      </div>
 
-        <div className="flex items-center gap-2">
-          <Label className="text-zinc-400 w-10">Limit</Label>
-          <Input
-            type="number"
-            value={limit}
-            onChange={(e) => setLimit(Number(e.target.value))}
-            className="w-20 h-8"
-          />
+      {catalogLoading ? (
+        <div className="flex-1 p-6 overflow-hidden flex flex-col">
+          <div className="relative flex-1 border border-zinc-800 rounded-3xl overflow-hidden bg-zinc-950 flex items-center justify-center">
+            <p className="text-sm text-zinc-400">
+              Loading available markets...
+            </p>
+          </div>
         </div>
-      </div>
-
-      {/* CHART AREA - now takes all remaining space */}
-      <div className="flex-1 p-6 overflow-hidden flex flex-col">
-        {isLoading && (
-          <div className="flex-1 flex items-center justify-center bg-zinc-900 rounded-3xl border border-zinc-800">
-            Loading candles...
+      ) : catalogError ? (
+        <div className="flex-1 p-6 overflow-hidden flex flex-col">
+          <div className="relative flex-1 border border-zinc-800 rounded-3xl overflow-hidden bg-zinc-950 flex items-center justify-center">
+            <p className="text-sm text-red-400">
+              Failed to load catalog — is your Axum backend running?
+            </p>
           </div>
-        )}
-
-        {error && (
-          <div className="flex-1 flex items-center justify-center bg-red-950/30 border border-red-900 rounded-3xl text-red-400">
-            Failed to load data — is your Axum backend running?
-          </div>
-        )}
-
-        {!isLoading && !error && (
-          <div className="flex-1 border border-zinc-800 rounded-3xl overflow-hidden bg-zinc-950">
-            <CandleChart candles={candles} />{" "}
-          </div>
-        )}
-      </div>
-
-      {/* Small footer info */}
-      <div className="h-9 text-[10px] text-zinc-500 flex items-center px-6 border-t border-zinc-800">
-        {candles.length} candles loaded • {symbol} • {interval}
-      </div>
+        </div>
+      ) : catalogSymbols.length === 0 ? (
+        <NoDatasetsMessage />
+      ) : (
+        <CandleChartPanel
+          exchange={exchange}
+          category={category}
+          symbol={activeSymbol}
+          interval={interval}
+        />
+      )}
     </DashboardShell>
   );
 }

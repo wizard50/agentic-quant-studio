@@ -69,3 +69,19 @@ export function useDatasets(): {
     error: error ?? null,
   };
 }
+
+export function getMarketSymbols(
+  datasets: DatasetCoverage[],
+  exchange: string,
+  category: string,
+): string[] {
+  const symbols = new Set<string>();
+
+  for (const dataset of datasets) {
+    if (dataset.exchange === exchange && dataset.category === category) {
+      symbols.add(dataset.symbol);
+    }
+  }
+
+  return [...symbols].sort();
+}
