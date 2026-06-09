@@ -28,9 +28,26 @@ The name reflects the **long-term vision** (see [Vision](#vision)); the implemen
 
 ### Market Research (`/`)
 
-- Candle chart (TradingView Lightweight Charts) backed by stored Parquet data
+- Candle chart ([TradingView Lightweight Charts](https://tradingview.github.io/lightweight-charts/)) backed by stored Parquet data
 - Exchange / category / symbol / interval controls
+- **Catalog-gated chart** — waits for `GET /catalog/candles` before loading candles; links to `/data` when no datasets exist for the selected market
+- **Symbol select** — options from `getMarketSymbols()` (exchange + category); placeholder symbol until the catalog loads
+- **Scroll-back history** — debounced prefetch when the viewport nears the left edge of loaded data; viewport preserved when older bars prepend
 - Resampling for intervals other than 1m (warehouse layer)
+
+#### Chart stack (frontend)
+
+| Piece | Role |
+|-------|------|
+| `CandleDatafeed` | Fetches candles, caches by series key, emits typed events |
+| `useCandleChart` | Wires chart + datafeed; handles initial load lifecycle |
+| `useChartHistoryScroll` | Subscribes to visible range; triggers `loadOlder()` |
+| `datafeedEvent.ts` | Applies events to the series (`replace` fits content; `prepend` preserves viewport) |
+| `CandleChartPanel` | Chart shell with loading / error overlays |
+
+**Datafeed events:** `replace` (full window), `prepend` (older page), plus lifecycle signals `paging`, `pageError`, and `rangeBoundary` (start/end of available data).
+
+Run chart unit tests: `cd frontend && npm test`
 
 ### Data Management (`/data`)
 
@@ -78,7 +95,7 @@ Base path: `/api/v1`. Default server: `http://127.0.0.1:3000` (see [Getting star
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/candles/{exchange}/{category}/{symbol}/{interval}` | Load historical candles from Parquet — optional query: `?start=`, `?end=`, `?limit=` |
+| GET | `/candles/{exchange}/{category}/{symbol}/{interval}` | Load historical candles from Parquet — optional query: `?start=`, `?end=`, `?limit=`; **404** if the dataset path does not exist |
 | POST | `/jobs` | Enqueue a job (JSON body, see below) |
 | GET | `/jobs` | List jobs — `?kind=`, `?active=true`, `?status=pending,running`, `?limit=` (max 500) |
 | GET | `/jobs/{id}` | Single job status |
@@ -117,7 +134,7 @@ Job statuses: `pending`, `running`, `completed`, `failed`, `cancelled`.
 | Backend | Rust, Axum, Tokio |
 | Jobs | In-process queue + worker (not Redis/Sidekiq) |
 | Warehouse | Parquet, Polars, custom catalog |
-| Frontend | Next.js 16, React Query, Zustand, shadcn/ui, Lightweight Charts |
+| Frontend | Next.js 16, React Query, Zustand, shadcn/ui, Lightweight Charts, Vitest |
 
 **Not in the repo yet:** agent framework (e.g. Rig), RAG, backtesting, Web3 / ERC-8004, MLOps.
 
@@ -184,11 +201,16 @@ curl -s "http://127.0.0.1:3000/api/v1/candles/bybit/spot/BTCUSDT/1m?limit=100" |
 │   └── api-client/
 ├── frontend/
 │   ├── app/
-│   │   ├── data/               # Data Management
-│   │   └── page.tsx            # Market Research
-│   └── hooks/
-│       ├── useCatalog.ts       # catalog snapshot + KPI derivations
-│       └── useJobs.ts          # job list + active job summary
+│   │   ├── data/                      # Data Management
+│   │   └── page.tsx                   # Market Research
+│   ├── components/chart/
+│   │   ├── CandleChartPanel.tsx       # chart panel + status overlays
+│   │   └── NoDatasetsMessage.tsx      # empty-catalog guidance
+│   ├── hooks/
+│   │   ├── chart/                     # useCandleChart, history scroll, resize
+│   │   ├── useCatalog.ts              # catalog snapshot + getMarketSymbols()
+│   │   └── useJobs.ts                 # job list + active job summary
+│   └── lib/chart/                     # datafeed, cache, events, viewport helpers
 └── README.md
 ```
 
