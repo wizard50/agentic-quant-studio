@@ -78,17 +78,23 @@ The most developed UI:
 
 Foundation for agent-composed **computation graphs** — indicators, logic, and outputs now; strategies on the same model later.
 
-**Implemented (spec layer):**
+**Spec:**
 
 - **`GraphSpec`** — serializable graph: `id`, `version`, `kind`, `nodes[]`, `edges[]`
 - **`GraphKind`** — graph intent (`chart` today; `strategy` planned)
 - **`NodeSpec`** — `id`, `kind` (registry key), `params` (JSON)
 - **`Edge`** — port-to-port wiring via `PortRef` (`node_id.port_name` in JSON)
-- **Tests** — `PortRef` parsing, edge serde, golden-cross example roundtrip
 
-UI metadata (node positions, labels, editor groups) will live in a separate **`GraphExtSpec`** later — not mixed into `GraphSpec`.
+**Runtime:**
 
-Runtime (validation, node registry, executor) and node implementations are not started yet. See [`crates/studio/README.md`](crates/studio/README.md) for the full JSON example.
+- **`validate`** — node ids, registry kinds, port types, unique input wires, acyclic graph
+- **`execute`** — topological execution into a `PortStore`
+- **`NodeRegistry`** / **`NodeOp`** — pluggable node ops with port/param metadata
+- **Built-in ops** — `indicator.sma`, `output.series`, `output.signal`
+
+UI metadata (node positions, labels, editor groups) will live in a separate **`GraphExtSpec`** later — not mixed into `GraphSpec`. `datasource.candles` is the next planned node op.
+
+See [`crates/studio/README.md`](crates/studio/README.md) for API usage and a runnable subgraph example.
 
 ```bash
 cargo test -p studio
@@ -227,7 +233,7 @@ curl -s "http://127.0.0.1:3000/api/v1/candles/bybit/spot/BTCUSDT/1m?limit=100" |
 │   │       ├── jobs/           # queue, worker, types, processors
 │   │       └── services/       # candle_service, etc.
 │   ├── common/                 # shared types (Exchange, candles, …)
-│   ├── studio/                 # GraphSpec (spec layer; runtime WIP)
+│   ├── studio/                 # GraphSpec + runtime (validate, execute, nodes)
 │   └── warehouse/              # Parquet I/O, catalog builder, downloader
 ├── frontend/
 │   ├── app/
