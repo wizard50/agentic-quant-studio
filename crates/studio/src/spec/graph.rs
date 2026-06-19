@@ -13,6 +13,22 @@ pub struct GraphSpec {
     pub edges: Vec<Edge>,
 }
 
+impl GraphSpec {
+    pub fn node(&self, id: &str) -> Result<&NodeSpec> {
+        self.nodes
+            .iter()
+            .find(|node| node.id == id)
+            .ok_or_else(|| Error::NodeNotFound(id.to_string()))
+    }
+
+    pub fn edge_to(&self, port: &PortRef) -> Result<&Edge> {
+        self.edges
+            .iter()
+            .find(|edge| &edge.to == port)
+            .ok_or_else(|| Error::PortNotFound(port.to_string()))
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum GraphKind {
@@ -128,6 +144,25 @@ mod tests {
         assert_eq!(port.to_string(), "cross.signal");
         assert_eq!(format!("{port}"), "cross.signal");
         assert_eq!(String::from(port.clone()), "cross.signal");
+    }
+
+    #[test]
+    fn graph_spec_edge_to_finds_input_wire() {
+        let spec: GraphSpec = serde_json::from_str(GOLDEN_CROSS_JSON).unwrap();
+        let port = PortRef::new("sma20", "input").unwrap();
+
+        let edge = spec.edge_to(&port).unwrap();
+        assert_eq!(edge.from.to_string(), "ds1.close");
+        assert_eq!(edge.to, port);
+    }
+
+    #[test]
+    fn graph_spec_edge_to_missing_port() {
+        let spec: GraphSpec = serde_json::from_str(GOLDEN_CROSS_JSON).unwrap();
+        let port = PortRef::new("sma20", "missing").unwrap();
+
+        let err = spec.edge_to(&port).unwrap_err();
+        assert!(matches!(err, Error::PortNotFound(id) if id == "sma20.missing"));
     }
 
     #[test]
