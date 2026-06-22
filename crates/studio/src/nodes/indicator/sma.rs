@@ -1,15 +1,17 @@
+use async_trait::async_trait;
 use std::sync::Arc;
+use talib_rs::overlap::sma;
 
 use crate::{
     error::{Error, Result},
     runtime::{
+        context::ExecutionContext,
         node::{
             NodeCategory, NodeMeta, NodeOp, Param, ParamKind, Port, ResolvedInputs, ResolvedOutputs,
         },
         value::{SeriesF64, Value, ValueKind},
     },
 };
-use talib_rs::overlap::sma;
 
 pub struct SmaOp;
 
@@ -19,6 +21,7 @@ impl SmaOp {
     }
 }
 
+#[async_trait]
 impl NodeOp for SmaOp {
     fn meta(&self) -> NodeMeta {
         NodeMeta {
@@ -39,8 +42,9 @@ impl NodeOp for SmaOp {
         }
     }
 
-    fn execute(
+    async fn execute(
         &self,
+        _ctx: &ExecutionContext,
         inputs: ResolvedInputs,
         params: &serde_json::Value,
     ) -> Result<ResolvedOutputs> {

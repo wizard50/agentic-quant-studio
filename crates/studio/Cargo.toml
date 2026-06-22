@@ -6,7 +6,10 @@ authors.workspace = true
 license.workspace = true
 
 [dependencies]
+common = { path = "../common", features = ["serde"] }
 thiserror.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+tokio.workspace = true
+async-trait.workspace = true
 talib-rs = { version = "0.1", features = ["simd"] }

@@ -1,7 +1,8 @@
-use std::{collections::HashMap, sync::Arc};
-
 use crate::error::{Error, Result};
+use crate::runtime::context::ExecutionContext;
 use crate::runtime::value::{SeriesF64, Value, ValueKind};
+use async_trait::async_trait;
+use std::{collections::HashMap, sync::Arc};
 
 #[derive(Debug, Clone)]
 pub struct NodeMeta {
@@ -45,11 +46,13 @@ pub enum ParamKind {
     Bool,
 }
 
+#[async_trait]
 pub trait NodeOp: Send + Sync {
     fn meta(&self) -> NodeMeta;
 
-    fn execute(
+    async fn execute(
         &self,
+        ctx: &ExecutionContext,
         inputs: ResolvedInputs,
         params: &serde_json::Value,
     ) -> Result<ResolvedOutputs>;

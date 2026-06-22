@@ -1,10 +1,14 @@
 use crate::{
     error::Result,
-    runtime::node::{
-        NodeCategory, NodeMeta, NodeOp, Param, ParamKind, Port, ResolvedInputs, ResolvedOutputs,
+    runtime::{
+        context::ExecutionContext,
+        node::{
+            NodeCategory, NodeMeta, NodeOp, Param, ParamKind, Port, ResolvedInputs, ResolvedOutputs,
+        },
+        value::ValueKind,
     },
-    runtime::value::ValueKind,
 };
+use async_trait::async_trait;
 
 pub struct OutputSignalOp;
 
@@ -14,6 +18,7 @@ impl OutputSignalOp {
     }
 }
 
+#[async_trait]
 impl NodeOp for OutputSignalOp {
     fn meta(&self) -> NodeMeta {
         NodeMeta {
@@ -34,8 +39,9 @@ impl NodeOp for OutputSignalOp {
         }
     }
 
-    fn execute(
+    async fn execute(
         &self,
+        _ctx: &ExecutionContext,
         inputs: ResolvedInputs,
         _params: &serde_json::Value,
     ) -> Result<ResolvedOutputs> {

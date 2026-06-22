@@ -1,11 +1,13 @@
-use std::{collections::HashMap, sync::Arc};
-
 use crate::{
     error::{Error, Result},
     registry::NodeRegistry,
-    runtime::{node::ResolvedInputs, plan::topo_sort, validate::validate, value::Value},
+    runtime::{
+        context::ExecutionContext, node::ResolvedInputs, plan::topo_sort, validate::validate,
+        value::Value,
+    },
     spec::{PortRef, graph::GraphSpec},
 };
+use std::{collections::HashMap, sync::Arc};
 
 pub struct PortStore {
     values: HashMap<PortRef, Arc<Value>>,
@@ -32,7 +34,11 @@ impl Default for PortStore {
     }
 }
 
-pub fn execute(graph: &GraphSpec, registry: &NodeRegistry) -> Result<PortStore> {
+pub async fn execute(
+    graph: &GraphSpec,
+    registry: &NodeRegistry,
+    ctx: &ExecutionContext,
+) -> Result<PortStore> {
     validate(graph, registry)?;
     let order = topo_sort(graph)?;
     let mut store = PortStore::default();
@@ -53,7 +59,7 @@ pub fn execute(graph: &GraphSpec, registry: &NodeRegistry) -> Result<PortStore> 
             inputs.insert(&input.name, store.get(&wire.from)?);
         }
 
-        let outputs = op.execute(inputs, &node_spec.params)?;
+        let outputs = op.execute(ctx, inputs, &node_spec.params).await?;
         for output in &meta.outputs {
             let value = outputs
                 .get(&output.name)
@@ -70,30 +76,73 @@ mod tests {
     use super::*;
     use crate::{
         registry::builtin_registry,
-        runtime::value::{SeriesF64, Value},
+        runtime::{FakeCandleSource, value::Value},
+        spec::{
+            GraphKind, NodeSpec,
+            graph::{Edge, GraphSpec},
+        },
     };
+    use common::types::Candle;
 
-    #[test]
-    fn execute_sma_over_constant_series() {
-        let registry = builtin_registry();
-        let mut store = PortStore::default();
-        store.insert(
-            PortRef::new("sma20", "input").unwrap(),
-            Value::SeriesF64(Arc::new(SeriesF64 {
-                values: vec![Some(1.0), Some(2.0), Some(3.0), Some(4.0), Some(5.0)],
-            })),
-        );
+    #[tokio::test]
+    async fn execute_datasource_wires_close_to_sma() {
+        let candles = vec![
+            Candle {
+                timestamp: 1,
+                open: 1.0,
+                high: 2.0,
+                low: 0.5,
+                close: 1.0,
+                volume: 10.0,
+            },
+            Candle {
+                timestamp: 2,
+                open: 1.0,
+                high: 2.0,
+                low: 0.5,
+                close: 2.0,
+                volume: 11.0,
+            },
+            Candle {
+                timestamp: 3,
+                open: 2.0,
+                high: 3.0,
+                low: 1.5,
+                close: 3.0,
+                volume: 12.0,
+            },
+        ];
+        let ctx = ExecutionContext::new(Arc::new(FakeCandleSource::new(candles)));
 
-        let op = registry.get("indicator.sma").unwrap();
-        let mut inputs = ResolvedInputs::new();
-        inputs.insert(
-            "input",
-            store.get(&PortRef::new("sma20", "input").unwrap()).unwrap(),
-        );
-        let outputs = op
-            .execute(inputs, &serde_json::json!({ "period": 3 }))
-            .unwrap();
-        let series = outputs.get("value").unwrap();
-        assert!(matches!(series, Value::SeriesF64(_)));
+        let graph = GraphSpec {
+            id: "ds-sma".to_string(),
+            version: 1,
+            kind: GraphKind::Chart,
+            nodes: vec![
+                NodeSpec {
+                    id: "ds1".to_string(),
+                    kind: "datasource.candles".to_string(),
+                    params: serde_json::json!({
+                        "exchange": "bybit",
+                        "category": "spot",
+                        "symbol": "BTCUSDT",
+                        "interval": "1d"
+                    }),
+                },
+                NodeSpec {
+                    id: "sma20".to_string(),
+                    kind: "indicator.sma".to_string(),
+                    params: serde_json::json!({ "period": 2 }),
+                },
+            ],
+            edges: vec![Edge {
+                from: PortRef::new("ds1", "close").unwrap(),
+                to: PortRef::new("sma20", "input").unwrap(),
+            }],
+        };
+
+        let store = execute(&graph, &builtin_registry(), &ctx).await.unwrap();
+        let value = store.get(&PortRef::new("sma20", "value").unwrap()).unwrap();
+        assert!(matches!(value.as_ref(), Value::SeriesF64(_)));
     }
 }
