@@ -1,15 +1,15 @@
-use super::value::SeriesF64;
+use super::value::{SeriesF64, SeriesI64};
 use crate::error::{Error, Result};
-use common::types::Candle;
+use common::types::{Candle, Exchange, Interval, MarketCategory};
 use serde_json::Value;
 use std::str::FromStr;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CandleQuery {
-    pub exchange: common::types::Exchange,
-    pub category: common::types::MarketCategory,
+    pub exchange: Exchange,
+    pub category: MarketCategory,
     pub symbol: String,
-    pub interval: common::types::Interval,
+    pub interval: Interval,
     pub start_ms: Option<i64>,
     pub end_ms: Option<i64>,
     pub limit: Option<u32>,
@@ -36,7 +36,7 @@ impl CandleQuery {
 
 #[derive(Debug, Clone)]
 pub struct OhlcvSeries {
-    pub timestamp: SeriesF64,
+    pub timestamp: SeriesI64,
     pub open: SeriesF64,
     pub high: SeriesF64,
     pub low: SeriesF64,
@@ -53,7 +53,7 @@ pub fn candles_to_series(candles: &[Candle]) -> OhlcvSeries {
     let mut volume = Vec::with_capacity(candles.len());
 
     for candle in candles {
-        timestamp.push(Some(candle.timestamp as f64));
+        timestamp.push(Some(candle.timestamp));
         open.push(Some(candle.open));
         high.push(Some(candle.high));
         low.push(Some(candle.low));
@@ -62,7 +62,7 @@ pub fn candles_to_series(candles: &[Candle]) -> OhlcvSeries {
     }
 
     OhlcvSeries {
-        timestamp: SeriesF64 { values: timestamp },
+        timestamp: SeriesI64 { values: timestamp },
         open: SeriesF64 { values: open },
         high: SeriesF64 { values: high },
         low: SeriesF64 { values: low },
@@ -106,18 +106,18 @@ fn optional_u32(params: &Value, name: &str) -> Result<Option<u32>> {
     }
 }
 
-pub fn parse_exchange(value: &str) -> Result<common::types::Exchange> {
-    common::types::Exchange::from_str(value)
+pub fn parse_exchange(value: &str) -> Result<Exchange> {
+    Exchange::from_str(value)
         .map_err(|err| crate::error::Error::InvalidParameter(format!("exchange: {err}")))
 }
 
-pub fn parse_market_category(value: &str) -> Result<common::types::MarketCategory> {
-    common::types::MarketCategory::from_str(value)
+pub fn parse_market_category(value: &str) -> Result<MarketCategory> {
+    MarketCategory::from_str(value)
         .map_err(|err| crate::error::Error::InvalidParameter(format!("category: {err}")))
 }
 
-pub fn parse_interval(value: &str) -> Result<common::types::Interval> {
-    common::types::Interval::from_str(value)
+pub fn parse_interval(value: &str) -> Result<Interval> {
+    Interval::from_str(value)
         .map_err(|err| crate::error::Error::InvalidParameter(format!("interval: {err}")))
 }
 
@@ -168,7 +168,7 @@ mod tests {
         assert_eq!(series.close.values, vec![Some(1.5), Some(2.0)]);
         assert_eq!(
             series.timestamp.values,
-            vec![Some(1_700_000_000_000.0), Some(1_700_086_400_000.0)]
+            vec![Some(1_700_000_000_000), Some(1_700_086_400_000)]
         );
     }
 }
