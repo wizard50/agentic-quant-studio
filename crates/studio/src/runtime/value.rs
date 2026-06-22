@@ -23,12 +23,18 @@ impl SeriesF64 {
 }
 
 #[derive(Debug, Clone)]
+pub struct SeriesI64 {
+    pub values: Vec<Option<i64>>,
+}
+
+#[derive(Debug, Clone)]
 pub struct SeriesBool {
     pub values: Vec<Option<bool>>,
 }
 
 #[derive(Debug, Clone)]
 pub enum Value {
+    SeriesI64(Arc<SeriesI64>),
     SeriesF64(Arc<SeriesF64>),
     SeriesBool(Arc<SeriesBool>),
     F64(f64),
@@ -38,6 +44,7 @@ pub enum Value {
 impl Value {
     pub fn kind(&self) -> ValueKind {
         match self {
+            Value::SeriesI64(_) => ValueKind::SeriesI64,
             Value::SeriesF64(_) => ValueKind::SeriesF64,
             Value::SeriesBool(_) => ValueKind::SeriesBool,
             Value::F64(_) => ValueKind::F64,
@@ -48,6 +55,7 @@ impl Value {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ValueKind {
+    SeriesI64,
     SeriesF64,
     SeriesBool,
     F64,

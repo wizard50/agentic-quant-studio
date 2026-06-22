@@ -40,7 +40,7 @@ impl NodeOp for CandlesOp {
             outputs: vec![
                 Port {
                     name: OUTPUT_TIMESTAMP.to_string(),
-                    kind: ValueKind::SeriesF64,
+                    kind: ValueKind::SeriesI64,
                 },
                 Port {
                     name: OUTPUT_OPEN.to_string(),
@@ -97,7 +97,7 @@ impl NodeOp for CandlesOp {
         let mut outputs = ResolvedOutputs::new();
         outputs.set(
             OUTPUT_TIMESTAMP,
-            Value::SeriesF64(Arc::new(ohlcv.timestamp)),
+            Value::SeriesI64(Arc::new(ohlcv.timestamp)),
         );
         outputs.set(OUTPUT_OPEN, Value::SeriesF64(Arc::new(ohlcv.open)));
         outputs.set(OUTPUT_HIGH, Value::SeriesF64(Arc::new(ohlcv.high)));
@@ -140,10 +140,16 @@ mod tests {
             .await
             .unwrap();
 
+        let timestamp = outputs.get(OUTPUT_TIMESTAMP).unwrap();
+        let Value::SeriesI64(timestamp) = timestamp else {
+            panic!("expected timestamp series");
+        };
+        assert_eq!(timestamp.values, vec![Some(1)]);
+
         let close = outputs.get(OUTPUT_CLOSE).unwrap();
-        let Value::SeriesF64(series) = close else {
+        let Value::SeriesF64(close) = close else {
             panic!("expected close series");
         };
-        assert_eq!(series.values, vec![Some(1.5)]);
+        assert_eq!(close.values, vec![Some(1.5)]);
     }
 }

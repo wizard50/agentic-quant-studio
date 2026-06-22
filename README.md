@@ -90,9 +90,10 @@ Foundation for agent-composed **computation graphs** — indicators, logic, and 
 - **`validate`** — node ids, registry kinds, port types, unique input wires, acyclic graph
 - **`execute`** — topological execution into a `PortStore`
 - **`NodeRegistry`** / **`NodeOp`** — pluggable node ops with port/param metadata
-- **Built-in ops** — `indicator.sma`, `output.series`, `output.signal`
+- **Built-in ops** — `datasource.candles`, `indicator.sma`, `output.series`, `output.signal`
+- **`ExecutionContext`** / **`CandleSource`** — async candle loading for data-source nodes
 
-UI metadata (node positions, labels, editor groups) will live in a separate **`GraphExtSpec`** later — not mixed into `GraphSpec`. `datasource.candles` is the next planned node op.
+UI metadata (node positions, labels, editor groups) will live in a separate **`GraphExtSpec`** later — not mixed into `GraphSpec`. Backend Parquet wiring (`WarehouseCandleSource`) is next.
 
 See [`crates/studio/README.md`](crates/studio/README.md) for API usage and a runnable subgraph example.
 

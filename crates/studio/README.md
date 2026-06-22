@@ -24,7 +24,7 @@ Helpers on `GraphSpec`:
 | Field | Description |
 |-------|-------------|
 | `id` | Unique node id within the graph |
-| `kind` | Registry key, e.g. `indicator.sma`, `output.series` |
+| `kind` | Registry key, e.g. `datasource.candles`, `indicator.sma` |
 | `params` | Node-specific JSON parameters |
 
 ### PortRef
@@ -32,23 +32,26 @@ Helpers on `GraphSpec`:
 Edges connect named ports using `node_id.port_name` strings in JSON:
 
 ```json
-{ "from": "sma20.value", "to": "out_fast.series" }
+{ "from": "ds1.close", "to": "sma20.input" }
 ```
 
 ## Runtime
 
 ```rust
+use std::sync::Arc;
+
 use studio::{
     registry::builtin_registry,
-    runtime::{execute, validate},
+    runtime::{ExecutionContext, FakeCandleSource, execute, validate},
     spec::GraphSpec,
 };
 
 let graph: GraphSpec = serde_json::from_str(json)?;
 let registry = builtin_registry();
+let ctx = ExecutionContext::new(Arc::new(FakeCandleSource::new(vec![])));
 
 validate(&graph, &registry)?;
-let store = execute(&graph, &registry)?;
+let store = execute(&graph, &registry, &ctx).await?;
 ```
 
 `validate` checks:
@@ -59,7 +62,7 @@ let store = execute(&graph, &registry)?;
 - port existence and type compatibility on every edge
 - acyclic graph (topological sort)
 
-`execute` re-validates, topologically sorts nodes, resolves inputs from wired ports, and runs each `NodeOp` in order. Results land in a `PortStore` keyed by `PortRef`.
+`execute` re-validates, topologically sorts nodes, resolves inputs from wired ports, and runs each `NodeOp` in order. Results land in a `PortStore` keyed by `PortRef`. Data-source nodes load candles via `ExecutionContext` and `CandleSource`.
 
 ## Built-in nodes
 
@@ -67,32 +70,38 @@ Registered via `builtin_registry()` / `nodes::register_builtins`:
 
 | Kind | Category |
 |------|----------|
+| `datasource.candles` | DataSource |
 | `indicator.sma` | Indicator |
 | `output.series` | Output |
 | `output.signal` | Output |
 
-`datasource.candles` and other data-source ops are planned for a follow-up PR.
-
 ## Example
 
-Runnable subgraph (SMA into output series):
+Datasource into SMA:
 
 ```json
 {
-  "id": "sma-output",
+  "id": "ds-sma",
   "version": 1,
   "kind": "chart",
   "nodes": [
-    { "id": "sma20", "kind": "indicator.sma", "params": { "period": 20 } },
-    { "id": "out_fast", "kind": "output.series", "params": { "label": "SMA 20" } }
+    {
+      "id": "ds1",
+      "kind": "datasource.candles",
+      "params": {
+        "exchange": "bybit",
+        "category": "spot",
+        "symbol": "BTCUSDT",
+        "interval": "1d"
+      }
+    },
+    { "id": "sma20", "kind": "indicator.sma", "params": { "period": 20 } }
   ],
   "edges": [
-    { "from": "sma20.value", "to": "out_fast.series" }
+    { "from": "ds1.close", "to": "sma20.input" }
   ]
 }
 ```
-
-`validate` still requires every declared input port to be wired, so leaf nodes such as `indicator.sma` need their inputs populated via `PortStore` before `execute` in integration tests today. Full end-to-end charts (candle datasource → indicators → outputs) depend on the datasource node landing next.
 
 ## Layout
 
@@ -102,12 +111,15 @@ src/
   error.rs       # graph/runtime errors
   registry.rs    # NodeRegistry, builtin_registry()
   runtime/
+    context.rs   # ExecutionContext, CandleSource
+    candles.rs   # CandleQuery, candles_to_series
     validate.rs  # graph validation
     plan.rs      # topological sort / execution order
     execute.rs   # graph executor, PortStore
     node.rs      # NodeOp trait, port/param metadata
-    value.rs     # SeriesF64, SeriesBool, Value
+    value.rs     # SeriesI64, SeriesF64, SeriesBool, Value
   nodes/
+    datasource/  # datasource.candles
     indicator/   # indicator.sma
     output/      # output.series, output.signal
 ```
@@ -118,4 +130,4 @@ src/
 cargo test -p studio
 ```
 
-Coverage includes spec serde/roundtrip, `PortRef` validation, graph validation, topological sort, SMA/output node ops, and port-store execution paths.
+Coverage includes spec serde/roundtrip, `PortRef` validation, graph validation, topological sort, datasource/SMA/output node ops, and port-store execution paths.

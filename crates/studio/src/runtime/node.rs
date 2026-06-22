@@ -1,6 +1,6 @@
 use crate::error::{Error, Result};
 use crate::runtime::context::ExecutionContext;
-use crate::runtime::value::{SeriesF64, Value, ValueKind};
+use crate::runtime::value::{SeriesF64, SeriesI64, Value, ValueKind};
 use async_trait::async_trait;
 use std::{collections::HashMap, sync::Arc};
 
@@ -78,6 +78,17 @@ impl ResolvedInputs {
             .get(port)
             .map(|value| value.as_ref())
             .ok_or_else(|| Error::PortNotFound(port.to_string()))
+    }
+
+    pub fn series_i64(&self, port: &str) -> Result<&SeriesI64> {
+        match self.get(port)? {
+            Value::SeriesI64(series) => Ok(series.as_ref()),
+            other => Err(Error::TypeMismatch {
+                port: port.to_string(),
+                expected: ValueKind::SeriesI64,
+                got: other.kind(),
+            }),
+        }
     }
 
     pub fn series_f64(&self, port: &str) -> Result<&SeriesF64> {
