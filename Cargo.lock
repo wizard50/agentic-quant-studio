@@ -3564,10 +3564,13 @@ dependencies = [
 name = "studio"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
+ "common",
  "serde",
  "serde_json",
  "talib-rs",
  "thiserror 2.0.18",
+ "tokio",
 ]
 
 [[package]]

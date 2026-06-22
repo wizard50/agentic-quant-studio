@@ -1,10 +1,14 @@
 use crate::{
     error::Result,
-    runtime::node::{
-        NodeCategory, NodeMeta, NodeOp, Param, ParamKind, Port, ResolvedInputs, ResolvedOutputs,
+    runtime::{
+        context::ExecutionContext,
+        node::{
+            NodeCategory, NodeMeta, NodeOp, Param, ParamKind, Port, ResolvedInputs, ResolvedOutputs,
+        },
+        value::ValueKind,
     },
-    runtime::value::ValueKind,
 };
+use async_trait::async_trait;
 
 pub struct OutputSeriesOp;
 
@@ -14,6 +18,7 @@ impl OutputSeriesOp {
     }
 }
 
+#[async_trait]
 impl NodeOp for OutputSeriesOp {
     fn meta(&self) -> NodeMeta {
         NodeMeta {
@@ -34,8 +39,9 @@ impl NodeOp for OutputSeriesOp {
         }
     }
 
-    fn execute(
+    async fn execute(
         &self,
+        _ctx: &ExecutionContext,
         inputs: ResolvedInputs,
         _params: &serde_json::Value,
     ) -> Result<ResolvedOutputs> {
@@ -51,11 +57,15 @@ mod tests {
     use std::sync::Arc;
 
     use super::*;
-    use crate::runtime::value::{SeriesF64, Value};
+    use crate::runtime::{
+        ExecutionContext, FakeCandleSource,
+        value::{SeriesF64, Value},
+    };
 
-    #[test]
-    fn passes_through_series() {
+    #[tokio::test]
+    async fn passes_through_series() {
         let op = OutputSeriesOp::new();
+        let ctx = ExecutionContext::new(Arc::new(FakeCandleSource::new(vec![])));
         let mut inputs = ResolvedInputs::new();
         inputs.insert(
             "series",
@@ -65,7 +75,8 @@ mod tests {
         );
 
         let outputs = op
-            .execute(inputs, &serde_json::json!({ "label": "SMA 20" }))
+            .execute(&ctx, inputs, &serde_json::json!({ "label": "SMA 20" }))
+            .await
             .unwrap();
 
         assert!(matches!(outputs.get("series"), Some(Value::SeriesF64(_))));
