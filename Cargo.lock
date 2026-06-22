@@ -274,6 +274,7 @@ name = "backend"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "axum",
  "chrono",
  "common",
@@ -283,6 +284,7 @@ dependencies = [
  "serde",
  "serde_json",
  "shellexpand",
+ "studio",
  "tokio",
  "toml",
  "tower",

@@ -40,6 +40,9 @@ pub enum Error {
     #[error("indicator error: {0}")]
     Indicator(String),
 
+    #[error("datasource error: {0}")]
+    DataSource(String),
+
     #[error("expected format 'node_id.port_name'")]
     InvalidFormat,
 
