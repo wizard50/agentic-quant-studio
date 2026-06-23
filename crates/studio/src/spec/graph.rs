@@ -206,8 +206,8 @@ mod tests {
         assert_eq!(spec.id, "golden-cross-btc-1d");
         assert_eq!(spec.version, 1);
         assert_eq!(spec.kind, GraphKind::Chart);
-        assert_eq!(spec.nodes.len(), 6);
-        assert_eq!(spec.edges.len(), 6);
+        assert_eq!(spec.nodes.len(), 4);
+        assert_eq!(spec.edges.len(), 4);
 
         let ds1 = &spec.nodes[0];
         assert_eq!(ds1.id, "ds1");
@@ -248,17 +248,13 @@ mod tests {
     },
     { "id": "sma20", "kind": "indicator.sma", "params": { "period": 20 } },
     { "id": "sma50", "kind": "indicator.sma", "params": { "period": 50 } },
-    { "id": "cross", "kind": "logic.crossover", "params": {} },
-    { "id": "out_fast", "kind": "output.series", "params": { "label": "SMA 20" } },
-    { "id": "out_sig", "kind": "output.signal", "params": { "label": "Golden cross" } }
+    { "id": "cross", "kind": "logic.crossover", "params": {} }
   ],
   "edges": [
     { "from": "ds1.close", "to": "sma20.input" },
     { "from": "ds1.close", "to": "sma50.input" },
     { "from": "sma20.value", "to": "cross.fast" },
-    { "from": "sma50.value", "to": "cross.slow" },
-    { "from": "sma20.value", "to": "out_fast.series" },
-    { "from": "cross.signal", "to": "out_sig.signal" }
+    { "from": "sma50.value", "to": "cross.slow" }
   ]
 }
 "#;

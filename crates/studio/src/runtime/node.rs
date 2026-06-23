@@ -17,7 +17,6 @@ pub struct NodeMeta {
 pub enum NodeCategory {
     DataSource,
     Indicator,
-    Output,
 }
 
 #[derive(Debug, Clone)]

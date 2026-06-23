@@ -116,17 +116,13 @@ mod tests {
     },
     { "id": "sma20", "kind": "indicator.sma", "params": { "period": 20 } },
     { "id": "sma50", "kind": "indicator.sma", "params": { "period": 50 } },
-    { "id": "cross", "kind": "logic.crossover", "params": {} },
-    { "id": "out_fast", "kind": "output.series", "params": { "label": "SMA 20" } },
-    { "id": "out_sig", "kind": "output.signal", "params": { "label": "Golden cross" } }
+    { "id": "cross", "kind": "logic.crossover", "params": {} }
   ],
   "edges": [
     { "from": "ds1.close", "to": "sma20.input" },
     { "from": "ds1.close", "to": "sma50.input" },
     { "from": "sma20.value", "to": "cross.fast" },
-    { "from": "sma50.value", "to": "cross.slow" },
-    { "from": "sma20.value", "to": "out_fast.series" },
-    { "from": "cross.signal", "to": "out_sig.signal" }
+    { "from": "sma50.value", "to": "cross.slow" }
   ]
 }
 "#;
@@ -160,33 +156,6 @@ mod tests {
             edges: vec![Edge {
                 from: PortRef::new("sma20", "value").unwrap(),
                 to: PortRef::new("sma50", "input").unwrap(),
-            }],
-        };
-
-        validate(&graph, &builtin_registry()).unwrap();
-    }
-
-    #[test]
-    fn validate_output_series_edge() {
-        let graph = GraphSpec {
-            id: "test".to_string(),
-            version: 1,
-            kind: crate::spec::GraphKind::Chart,
-            nodes: vec![
-                crate::spec::NodeSpec {
-                    id: "sma20".to_string(),
-                    kind: "indicator.sma".to_string(),
-                    params: serde_json::json!({ "period": 20 }),
-                },
-                crate::spec::NodeSpec {
-                    id: "out_fast".to_string(),
-                    kind: "output.series".to_string(),
-                    params: serde_json::json!({ "label": "SMA 20" }),
-                },
-            ],
-            edges: vec![Edge {
-                from: crate::spec::PortRef::new("sma20", "value").unwrap(),
-                to: crate::spec::PortRef::new("out_fast", "series").unwrap(),
             }],
         };
 

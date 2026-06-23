@@ -64,6 +64,8 @@ let store = execute(&graph, &registry, &ctx).await?;
 
 `execute` re-validates, topologically sorts nodes, resolves inputs from wired ports, and runs each `NodeOp` in order. Results land in a `PortStore` keyed by `PortRef`. Data-source nodes load candles via `ExecutionContext` and `CandleSource`.
 
+The backend `POST /api/v1/studio/runs` endpoint wraps a `GraphSpec` with an `outputs` list of port strings (`node_id.port_name`) and returns only the requested ports plus run `meta`.
+
 ## Built-in nodes
 
 Registered via `builtin_registry()` / `nodes::register_builtins`:
@@ -72,8 +74,6 @@ Registered via `builtin_registry()` / `nodes::register_builtins`:
 |------|----------|
 | `datasource.candles` | DataSource |
 | `indicator.sma` | Indicator |
-| `output.series` | Output |
-| `output.signal` | Output |
 
 ## Example
 
@@ -121,7 +121,6 @@ src/
   nodes/
     datasource/  # datasource.candles
     indicator/   # indicator.sma
-    output/      # output.series, output.signal
 ```
 
 ## Tests
@@ -130,4 +129,4 @@ src/
 cargo test -p studio
 ```
 
-Coverage includes spec serde/roundtrip, `PortRef` validation, graph validation, topological sort, datasource/SMA/output node ops, and port-store execution paths.
+Coverage includes spec serde/roundtrip, `PortRef` validation, graph validation, topological sort, datasource/SMA node ops, and port-store execution paths.
