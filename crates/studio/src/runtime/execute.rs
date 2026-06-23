@@ -24,6 +24,10 @@ impl PortStore {
             .cloned()
             .ok_or_else(|| Error::PortNotFound(port.to_string()))
     }
+
+    pub fn iter(&self) -> impl Iterator<Item = (&PortRef, &Arc<Value>)> {
+        self.values.iter()
+    }
 }
 
 impl Default for PortStore {

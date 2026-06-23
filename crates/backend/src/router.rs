@@ -1,4 +1,4 @@
-use crate::handlers::{candles, catalog, jobs};
+use crate::handlers::{candles, catalog, jobs, studio};
 use crate::state::AppState;
 use axum::{
     Router,
@@ -50,4 +50,5 @@ fn api_routes() -> Router<AppState> {
         .route("/jobs/{id}", get(jobs::get_job))
         .route("/catalog/candles", get(catalog::candles))
         .route("/catalog/candles/refresh", post(catalog::refresh_candles))
+        .route("/studio/runs", post(studio::run_graph))
 }
