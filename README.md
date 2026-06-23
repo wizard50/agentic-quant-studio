@@ -90,10 +90,10 @@ Foundation for agent-composed **computation graphs** — indicators, logic, and 
 - **`validate`** — node ids, registry kinds, port types, unique input wires, acyclic graph
 - **`execute`** — topological execution into a `PortStore`
 - **`NodeRegistry`** / **`NodeOp`** — pluggable node ops with port/param metadata
-- **Built-in ops** — `datasource.candles`, `indicator.sma`, `output.series`, `output.signal`
+- **Built-in ops** — `datasource.candles`, `indicator.sma`
 - **`ExecutionContext`** / **`CandleSource`** — async candle loading for data-source nodes
 
-UI metadata (node positions, labels, editor groups) will live in a separate **`GraphExtSpec`** later — not mixed into `GraphSpec`. Execute graphs via **`POST /api/v1/studio/runs`** (body: `GraphSpec`, response: port `outputs`).
+UI metadata (node positions, labels, editor groups) will live in a separate **`GraphExtSpec`** later — not mixed into `GraphSpec`. Execute graphs via **`POST /api/v1/studio/runs`** (body: `{ graph, outputs }`, response: requested port values + `meta`).
 
 See [`crates/studio/README.md`](crates/studio/README.md) for API usage and a runnable subgraph example.
 
@@ -136,7 +136,7 @@ Base path: `/api/v1`. Default server: `http://127.0.0.1:3000` (see [Getting star
 | GET | `/jobs/{id}` | Single job status |
 | GET | `/catalog/candles` | Full catalog snapshot |
 | POST | `/catalog/candles/refresh` | Background catalog rescan (202, no job record) |
-| POST | `/studio/runs` | Execute a `GraphSpec` — returns `{ "outputs": { "node.port": Value, ... } }` |
+| POST | `/studio/runs` | Execute a graph — body: `{ graph, outputs }`; returns requested port values + `meta` |
 
 ### Run graph example (datasource → SMA)
 
@@ -144,25 +144,28 @@ Base path: `/api/v1`. Default server: `http://127.0.0.1:3000` (see [Getting star
 curl -s -X POST http://127.0.0.1:3000/api/v1/studio/runs \
   -H "Content-Type: application/json" \
   -d '{
-    "id": "ds-sma",
-    "version": 1,
-    "kind": "chart",
-    "nodes": [
-      {
-        "id": "ds1",
-        "kind": "datasource.candles",
-        "params": {
-          "exchange": "bybit",
-          "category": "spot",
-          "symbol": "BTCUSDT",
-          "interval": "1d"
-        }
-      },
-      { "id": "sma20", "kind": "indicator.sma", "params": { "period": 20 } }
-    ],
-    "edges": [
-      { "from": "ds1.close", "to": "sma20.input" }
-    ]
+    "graph": {
+      "id": "ds-sma",
+      "version": 1,
+      "kind": "chart",
+      "nodes": [
+        {
+          "id": "ds1",
+          "kind": "datasource.candles",
+          "params": {
+            "exchange": "bybit",
+            "category": "spot",
+            "symbol": "BTCUSDT",
+            "interval": "1d"
+          }
+        },
+        { "id": "sma20", "kind": "indicator.sma", "params": { "period": 20 } }
+      ],
+      "edges": [
+        { "from": "ds1.close", "to": "sma20.input" }
+      ]
+    },
+    "outputs": ["ds1.timestamp", "ds1.close", "sma20.value"]
   }' | jq '.outputs["sma20.value"]'
 ```
 
