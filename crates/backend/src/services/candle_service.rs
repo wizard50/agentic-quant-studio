@@ -27,6 +27,10 @@ pub fn get_candles(
         storage_interval,
     )?;
 
+    if dataset_bounds.is_none() && query.start.is_none() && query.end.is_none() {
+        return Err(warehouse::error::Error::DatasetNotFound);
+    }
+
     let window = resolve_candle_window(
         query.start.map(|dt| dt.timestamp_millis()),
         query.end.map(|dt| dt.timestamp_millis()),

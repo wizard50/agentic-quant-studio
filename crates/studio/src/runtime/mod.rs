@@ -10,4 +10,4 @@ pub use candles::CandleQuery;
 pub use context::{CandleSource, ExecutionContext, FakeCandleSource};
 pub use execute::{PortStore, execute};
 pub use validate::validate;
-pub use value::ValueKind;
+pub use value::{Value, ValueKind};

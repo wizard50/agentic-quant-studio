@@ -216,6 +216,7 @@ mod tests {
     use crate::parquet::load_candles;
 
     #[tokio::test]
+    #[ignore = "downloads full BTCUSDT history from Bybit; run: cargo test -p warehouse test_download_full_history -- --ignored"]
     async fn test_download_full_history() -> Result<()> {
         let candles =
             download_full_history(Exchange::Bybit, MarketCategory::Spot, "BTCUSDT").await?;

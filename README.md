@@ -93,7 +93,7 @@ Foundation for agent-composed **computation graphs** — indicators, logic, and 
 - **Built-in ops** — `datasource.candles`, `indicator.sma`, `output.series`, `output.signal`
 - **`ExecutionContext`** / **`CandleSource`** — async candle loading for data-source nodes
 
-UI metadata (node positions, labels, editor groups) will live in a separate **`GraphExtSpec`** later — not mixed into `GraphSpec`. Backend Parquet wiring (`WarehouseCandleSource`) is next.
+UI metadata (node positions, labels, editor groups) will live in a separate **`GraphExtSpec`** later — not mixed into `GraphSpec`. Execute graphs via **`POST /api/v1/studio/runs`** (body: `GraphSpec`, response: port `outputs`).
 
 See [`crates/studio/README.md`](crates/studio/README.md) for API usage and a runnable subgraph example.
 
@@ -136,6 +136,35 @@ Base path: `/api/v1`. Default server: `http://127.0.0.1:3000` (see [Getting star
 | GET | `/jobs/{id}` | Single job status |
 | GET | `/catalog/candles` | Full catalog snapshot |
 | POST | `/catalog/candles/refresh` | Background catalog rescan (202, no job record) |
+| POST | `/studio/runs` | Execute a `GraphSpec` — returns `{ "outputs": { "node.port": Value, ... } }` |
+
+### Run graph example (datasource → SMA)
+
+```bash
+curl -s -X POST http://127.0.0.1:3000/api/v1/studio/runs \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "ds-sma",
+    "version": 1,
+    "kind": "chart",
+    "nodes": [
+      {
+        "id": "ds1",
+        "kind": "datasource.candles",
+        "params": {
+          "exchange": "bybit",
+          "category": "spot",
+          "symbol": "BTCUSDT",
+          "interval": "1d"
+        }
+      },
+      { "id": "sma20", "kind": "indicator.sma", "params": { "period": 20 } }
+    ],
+    "edges": [
+      { "from": "ds1.close", "to": "sma20.input" }
+    ]
+  }' | jq '.outputs["sma20.value"]'
+```
 
 ### Create job example (`ingest_candles`)
 
