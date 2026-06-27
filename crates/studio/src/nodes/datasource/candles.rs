@@ -64,22 +64,10 @@ impl NodeOp for CandlesOp {
                 },
             ],
             params: vec![
-                Param {
-                    name: "exchange".to_string(),
-                    kind: ParamKind::String,
-                },
-                Param {
-                    name: "category".to_string(),
-                    kind: ParamKind::String,
-                },
-                Param {
-                    name: "symbol".to_string(),
-                    kind: ParamKind::String,
-                },
-                Param {
-                    name: "interval".to_string(),
-                    kind: ParamKind::String,
-                },
+                Param::new("exchange", ParamKind::String),
+                Param::new("category", ParamKind::String),
+                Param::new("symbol", ParamKind::String),
+                Param::new("interval", ParamKind::String),
             ],
         }
     }

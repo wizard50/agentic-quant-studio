@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
-use crate::runtime::node::{NodeMeta, NodeOp};
+use crate::runtime::node::{NodeCategory, NodeMeta, NodeOp};
 
 pub struct NodeRegistry {
     ops: HashMap<String, Arc<dyn NodeOp>>,
@@ -33,6 +33,17 @@ impl NodeRegistry {
     pub fn kinds(&self) -> impl Iterator<Item = &str> {
         self.ops.keys().map(String::as_str)
     }
+
+    pub fn indicator_metas(&self) -> Vec<NodeMeta> {
+        let mut metas: Vec<NodeMeta> = self
+            .meta
+            .values()
+            .filter(|meta| meta.category == NodeCategory::Indicator)
+            .cloned()
+            .collect();
+        metas.sort_by(|left, right| left.kind.cmp(&right.kind));
+        metas
+    }
 }
 
 impl Default for NodeRegistry {
@@ -45,4 +56,21 @@ pub fn builtin_registry() -> NodeRegistry {
     let mut registry = NodeRegistry::new();
     crate::nodes::register_builtins(&mut registry);
     registry
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::runtime::node::ParamKind;
+
+    #[test]
+    fn indicator_metas_returns_only_indicator_nodes() {
+        let registry = builtin_registry();
+        let indicators = registry.indicator_metas();
+
+        assert_eq!(indicators.len(), 1);
+        assert_eq!(indicators[0].kind, "indicator.sma");
+        assert_eq!(indicators[0].params[0].name, "period");
+        assert_eq!(indicators[0].params[0].kind, ParamKind::U32);
+    }
 }

@@ -1,10 +1,16 @@
-use crate::state::AppState;
+use crate::{models::catalog::IndicatorCatalogResponse, state::AppState};
 use axum::{Json, extract::State, http::StatusCode};
+use studio::registry::builtin_registry;
 use warehouse::catalog::CatalogSnapshot;
 
 pub async fn candles(State(state): State<AppState>) -> Result<Json<CatalogSnapshot>, StatusCode> {
     let snapshot = state.catalog.get_candles().await;
     Ok(Json(snapshot))
+}
+
+pub async fn indicators() -> Json<IndicatorCatalogResponse> {
+    let registry = builtin_registry();
+    Json(IndicatorCatalogResponse::from_registry(&registry))
 }
 
 /// Triggers a background refresh of the candle catalog.
