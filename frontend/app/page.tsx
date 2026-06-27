@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { IndicatorToolbar } from "@/components/chart/IndicatorToolbar";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 
 export default function QuantResearchDashboard() {
@@ -73,69 +74,73 @@ export default function QuantResearchDashboard() {
         </div>
       </header>
 
-      <div className="h-14 border-b border-zinc-800 bg-zinc-900 px-6 flex items-center gap-6 text-sm">
-        <div className="flex items-center gap-2">
-          <Label className="text-zinc-400 w-16">Exchange</Label>
-          <Select value={exchange} onValueChange={setExchange}>
-            <SelectTrigger className="w-28">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="bybit">Bybit</SelectItem>
-            </SelectContent>
-          </Select>
+      <div className="h-14 border-b border-zinc-800 bg-zinc-900 px-6 flex items-center justify-between text-sm">
+        <div className="flex items-center gap-6">
+          <div className="flex items-center gap-2">
+            <Label className="text-zinc-400 w-16">Exchange</Label>
+            <Select value={exchange} onValueChange={setExchange}>
+              <SelectTrigger className="w-28">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="bybit">Bybit</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Label className="text-zinc-400 w-16">Category</Label>
+            <Select value={category} onValueChange={setCategory}>
+              <SelectTrigger className="w-28">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="spot">Spot</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Label className="text-zinc-400 w-12">Symbol</Label>
+            <Select
+              value={activeSymbol || undefined}
+              onValueChange={setSymbol}
+              disabled={!catalogLoading && catalogSymbols.length === 0}
+            >
+              <SelectTrigger className="w-36 font-mono">
+                <SelectValue
+                  placeholder={catalogLoading ? "Loading..." : "No symbols"}
+                />
+              </SelectTrigger>
+              <SelectContent>
+                {availableSymbols.map((s) => (
+                  <SelectItem key={s} value={s}>
+                    {s}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Label className="text-zinc-400 w-14">Interval</Label>
+            <Select value={interval} onValueChange={setInterval}>
+              <SelectTrigger className="w-28">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1m">1 minute</SelectItem>
+                <SelectItem value="5m">5 minutes</SelectItem>
+                <SelectItem value="15m">15 minutes</SelectItem>
+                <SelectItem value="1h">1 hour</SelectItem>
+                <SelectItem value="4h">4 hours</SelectItem>
+                <SelectItem value="1d">1 day</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Label className="text-zinc-400 w-16">Category</Label>
-          <Select value={category} onValueChange={setCategory}>
-            <SelectTrigger className="w-28">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="spot">Spot</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Label className="text-zinc-400 w-12">Symbol</Label>
-          <Select
-            value={activeSymbol || undefined}
-            onValueChange={setSymbol}
-            disabled={!catalogLoading && catalogSymbols.length === 0}
-          >
-            <SelectTrigger className="w-36 font-mono">
-              <SelectValue
-                placeholder={catalogLoading ? "Loading..." : "No symbols"}
-              />
-            </SelectTrigger>
-            <SelectContent>
-              {availableSymbols.map((s) => (
-                <SelectItem key={s} value={s}>
-                  {s}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Label className="text-zinc-400 w-14">Interval</Label>
-          <Select value={interval} onValueChange={setInterval}>
-            <SelectTrigger className="w-28">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="1m">1 minute</SelectItem>
-              <SelectItem value="5m">5 minutes</SelectItem>
-              <SelectItem value="15m">15 minutes</SelectItem>
-              <SelectItem value="1h">1 hour</SelectItem>
-              <SelectItem value="4h">4 hours</SelectItem>
-              <SelectItem value="1d">1 day</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        <IndicatorToolbar />
       </div>
 
       {catalogLoading ? (
