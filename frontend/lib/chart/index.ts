@@ -20,6 +20,8 @@ export {
   toVolumeBar,
   toVolumeBars,
 } from "./mapCandles";
+export { toLineSeriesData } from "./mapSeries";
+export { CHART_COLORS } from "./theme";
 export type {
   CandleQuery,
   ChartSeries,

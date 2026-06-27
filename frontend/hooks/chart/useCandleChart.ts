@@ -3,6 +3,7 @@
 import {
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type RefObject,
@@ -15,6 +16,7 @@ import {
 } from "@/lib/chart";
 import type { ChartSeries, ChartStatus, SeriesKey } from "@/lib/chart";
 import { useChartHistoryScroll } from "./useChartHistoryScroll";
+import { useChartIndicators } from "./useChartIndicators";
 import { useChartResize } from "./useChartResize";
 
 export interface UseCandleChartParams {
@@ -34,6 +36,11 @@ export function useCandleChart(
   params: UseCandleChartParams,
 ): UseCandleChartResult {
   const { exchange, category, symbol, interval } = params;
+
+  const marketKey = useMemo<SeriesKey>(
+    () => ({ exchange, category, symbol, interval }),
+    [exchange, category, symbol, interval],
+  );
 
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -81,19 +88,13 @@ export function useCandleChart(
   }, []);
 
   useEffect(() => {
-    if (!symbol) {
+    if (!marketKey.symbol) {
       return;
     }
 
     const datafeed = datafeedRef.current;
-    const key: SeriesKey = {
-      exchange,
-      category,
-      symbol,
-      interval,
-    };
 
-    datafeed.reset(key);
+    datafeed.reset(marketKey);
 
     let cancelled = false;
 
@@ -114,7 +115,7 @@ export function useCandleChart(
     return () => {
       cancelled = true;
     };
-  }, [exchange, category, symbol, interval]);
+  }, [marketKey]);
 
   const displayStatus: ChartStatus = symbol ? status : "idle";
   const displayError = symbol ? error : null;
@@ -126,6 +127,13 @@ export function useCandleChart(
     displayStatus === "ready",
   );
   useChartResize(containerRef, chartRef);
+
+  useChartIndicators({
+    chartRef,
+    datafeedRef,
+    marketKey,
+    chartReady: displayStatus === "ready",
+  });
 
   return {
     containerRef,
