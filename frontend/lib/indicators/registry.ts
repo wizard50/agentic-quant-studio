@@ -8,11 +8,11 @@ export const TEMP_SMA_INSTANCE_ID = "sma-20";
 
 export const smaDefinition: IndicatorDefinition = {
   kind: SMA_KIND,
+  name: "SMA",
+  description: "Simple moving average",
   label: (params) => `SMA ${params.period ?? 20}`,
   defaultParams: { period: 20 },
-  configSchema: [
-    { name: "period", type: "number", label: "Period", min: 1 },
-  ],
+  configSchema: [{ name: "period", type: "number", label: "Period", min: 1 }],
   seriesStyle: { color: CHART_COLORS.sma, lineWidth: 2 },
   contribute: ({ dsNodeId, nodeId, params }) => ({
     nodes: [{ id: nodeId, kind: SMA_KIND, params }],

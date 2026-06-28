@@ -30,6 +30,8 @@ export interface GraphContribution {
 
 export interface IndicatorDefinition {
   kind: string;
+  name: string;
+  description?: string;
   label: (params: IndicatorParams) => string;
   defaultParams: IndicatorParams;
   configSchema: ParamField[];

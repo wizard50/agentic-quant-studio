@@ -1,3 +1,16 @@
+export { fetchIndicatorCatalog } from "./catalog";
+export type {
+  CatalogParam,
+  CatalogPort,
+  CatalogType,
+  IndicatorCatalog,
+  IndicatorCatalogEntry,
+} from "./catalog";
+export {
+  getIndicatorDescription,
+  getIndicatorLabel,
+  getIndicatorName,
+} from "./labels";
 export { buildIndicatorRunRequest } from "./buildRunRequest";
 export type { IndicatorRunParams } from "./buildRunRequest";
 export {

@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { IndicatorBrowser } from "@/components/chart/IndicatorBrowser";
 import { IndicatorToolbar } from "@/components/chart/IndicatorToolbar";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 
@@ -137,6 +138,12 @@ export default function QuantResearchDashboard() {
                 <SelectItem value="1d">1 day</SelectItem>
               </SelectContent>
             </Select>
+            <div
+              className="h-6 w-px bg-zinc-700"
+              role="separator"
+              aria-orientation="vertical"
+            />
+            <IndicatorBrowser />
           </div>
         </div>
 
