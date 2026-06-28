@@ -35,10 +35,11 @@ impl NodeOp for SmaOp {
                 name: "value".to_string(),
                 kind: ValueKind::SeriesF64,
             }],
-            params: vec![Param {
-                name: "period".to_string(),
-                kind: ParamKind::U32,
-            }],
+            params: vec![
+                Param::new("period", ParamKind::U32)
+                    .with_default(serde_json::json!(20))
+                    .with_min(1.0),
+            ],
         }
     }
 

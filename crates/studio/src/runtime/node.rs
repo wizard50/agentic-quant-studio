@@ -13,7 +13,7 @@ pub struct NodeMeta {
     pub params: Vec<Param>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NodeCategory {
     DataSource,
     Indicator,
@@ -35,6 +35,36 @@ impl Port {
 pub struct Param {
     pub name: String,
     pub kind: ParamKind,
+    pub default: Option<serde_json::Value>,
+    pub min: Option<f64>,
+    pub max: Option<f64>,
+}
+
+impl Param {
+    pub fn new(name: impl Into<String>, kind: ParamKind) -> Self {
+        Self {
+            name: name.into(),
+            kind,
+            default: None,
+            min: None,
+            max: None,
+        }
+    }
+
+    pub fn with_default(mut self, default: serde_json::Value) -> Self {
+        self.default = Some(default);
+        self
+    }
+
+    pub fn with_min(mut self, min: f64) -> Self {
+        self.min = Some(min);
+        self
+    }
+
+    pub fn with_max(mut self, max: f64) -> Self {
+        self.max = Some(max);
+        self
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

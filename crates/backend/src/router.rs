@@ -50,5 +50,6 @@ fn api_routes() -> Router<AppState> {
         .route("/jobs/{id}", get(jobs::get_job))
         .route("/catalog/candles", get(catalog::candles))
         .route("/catalog/candles/refresh", post(catalog::refresh_candles))
+        .route("/catalog/indicators", get(catalog::indicators))
         .route("/studio/runs", post(studio::run_graph))
 }
