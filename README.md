@@ -17,9 +17,9 @@ A workspace for building agentic AI systems in quantitative finance and Web3.
 This repo is an **early-stage data platform**, not yet an agentic workspace. There is no chat, no RAG, no backtesting engine, and no on-chain integration in the codebase. What works end-to-end today:
 
 - **Parquet warehouse** — Hive-style paths (`exchange/category/symbol/interval/...`), catalog scan, candle read/resample
-- **Rust backend** — Axum API for candles, catalog, and a generic background job queue
+- **Rust backend** — Axum API for candles, candle + indicator catalogs, studio graph runs, and a generic background job queue
 - **Next.js frontend** — two pages: Market Research (`/`) and Data Management (`/data`)
-- **Studio crate** — declarative `GraphSpec` for agent-composed computation graphs (chart indicators first; strategy later)
+- **Studio crate** — declarative `GraphSpec` for agent-composed computation graphs (chart indicators first; strategy later), with an indicator catalog derived from the node registry
 
 The name reflects the **long-term vision** (see [Vision](#vision)); the implementation is focused on reliable market data, chart UX, and the graph spec foundation for indicators and strategies.
 
@@ -35,6 +35,24 @@ The name reflects the **long-term vision** (see [Vision](#vision)); the implemen
 - **Symbol select** — options from `getMarketSymbols()` (exchange + category); placeholder symbol until the catalog loads
 - **Infinite history scroll** — scroll left to load older candles in pages (500 bars); debounced prefetch when fewer than 50 bars remain before the viewport; viewport position preserved when older bars prepend
 - Resampling for intervals other than 1m (warehouse layer)
+- **Dynamic chart indicators** — browse available indicators from `GET /catalog/indicators`, add multiple instances, show/hide lines, edit params (e.g. SMA period), and remove from a chart overlay legend
+- **Per-instance colors** — each indicator instance gets a distinct line color from a 10-color pool
+
+#### Chart indicators
+
+Indicators are **instances** (kind + params + visibility + color), not hard-coded toggles. The UI loads the catalog from the backend; the chart composes a shared `datasource.candles` node plus one graph node per visible instance and runs it via `POST /studio/runs`.
+
+| Piece | Role |
+|-------|------|
+| `IndicatorBrowser` | Toolbar dialog — lists catalog entries, adds instances with default params |
+| `ChartLegend` | Top-left overlay listing active instances |
+| `IndicatorLayerRow` | Per-instance controls — show/hide, settings, remove |
+| `IndicatorSettingsDialog` | Edit params from registry `configSchema` (e.g. SMA period) |
+| `useChartIndicatorsStore` | Zustand store for instances + per-instance runtime (loading/error) |
+| `useChartIndicators` | Fetches indicator series, manages Lightweight Charts line series + cache |
+| `lib/indicators/` | Frontend registry, run-request builder, color pool, catalog client |
+
+Graph node ids must not contain `.` (port refs use `node_id.port_name`); instance ids are generated as `indicator-sma-{timestamp}-{n}`.
 
 #### Chart stack (frontend)
 
@@ -46,14 +64,15 @@ Event-driven datafeed with a dedicated cache layer — chart components subscrib
 | `CandleCache` | Sorted, de-duplicated candle store per series; merge on prepend |
 | `datafeedEvent.ts` | Maps events to series updates; `preserveViewportOnPrepend` keeps the visible window stable |
 | `preserveViewport.ts` | History preload threshold and debounce (`150ms`) helpers |
-| `useCandleChart` | Wires chart + datafeed; handles initial load lifecycle |
+| `useCandleChart` | Wires chart + datafeed + indicators; handles initial load lifecycle |
+| `useChartIndicators` | Composes studio graphs for visible instances; line series + data cache |
 | `useChartHistoryScroll` | Subscribes to visible logical range; triggers `loadOlder()` |
 | `useChartResize` | ResizeObserver sync for responsive chart layout |
-| `CandleChartPanel` | Chart shell with loading / error overlays |
+| `CandleChartPanel` | Chart shell, legend overlay, loading / error states |
 
 **Datafeed events:** `replace` (full window), `prepend` (older page), plus lifecycle signals `loading`, `paging`, `pageError`, `rangeBoundary` (start/end of available data), and `reset` (series change).
 
-Run chart unit tests: `cd frontend && npm test` (datafeed, cache, viewport preservation, candle mapping)
+Run chart unit tests: `cd frontend && npm test` (datafeed, cache, viewport preservation, candle mapping, indicator store/registry)
 
 ### Data Management (`/data`)
 
@@ -92,6 +111,7 @@ Foundation for agent-composed **computation graphs** — indicators, logic, and 
 - **`NodeRegistry`** / **`NodeOp`** — pluggable node ops with port/param metadata
 - **Built-in ops** — `datasource.candles`, `indicator.sma`
 - **`ExecutionContext`** / **`CandleSource`** — async candle loading for data-source nodes
+- **`IndicatorCatalog`** — serializable indicator metadata (kinds, ports, params with types/defaults/min/max) built from `NodeRegistry::indicator_metas()`; exposed as **`GET /api/v1/catalog/indicators`**
 
 UI metadata (node positions, labels, editor groups) will live in a separate **`GraphExtSpec`** later — not mixed into `GraphSpec`. Execute graphs via **`POST /api/v1/studio/runs`** (body: `{ graph, outputs }`, response: requested port values + `meta`).
 
@@ -134,9 +154,16 @@ Base path: `/api/v1`. Default server: `http://127.0.0.1:3000` (see [Getting star
 | POST | `/jobs` | Enqueue a job (JSON body, see below) |
 | GET | `/jobs` | List jobs — `?kind=`, `?active=true`, `?status=pending,running`, `?limit=` (max 500) |
 | GET | `/jobs/{id}` | Single job status |
-| GET | `/catalog/candles` | Full catalog snapshot |
-| POST | `/catalog/candles/refresh` | Background catalog rescan (202, no job record) |
+| GET | `/catalog/candles` | Full candle dataset catalog snapshot |
+| GET | `/catalog/indicators` | Indicator catalog from the studio node registry (kinds, ports, params) |
+| POST | `/catalog/candles/refresh` | Background candle catalog rescan (202, no job record) |
 | POST | `/studio/runs` | Execute a graph — body: `{ graph, outputs }`; returns requested port values + `meta` |
+
+### Indicator catalog example
+
+```bash
+curl -s http://127.0.0.1:3000/api/v1/catalog/indicators | jq '.indicators[] | {kind, params}'
+```
 
 ### Run graph example (datasource → SMA)
 
@@ -244,8 +271,11 @@ Open http://localhost:3001 — Data Management is at `/data`.
 ### Example API usage
 
 ```bash
-# Catalog size
+# Candle catalog size
 curl -s http://127.0.0.1:3000/api/v1/catalog/candles | jq '.datasets | length'
+
+# Indicator catalog (studio registry)
+curl -s http://127.0.0.1:3000/api/v1/catalog/indicators | jq '.indicators | length'
 
 # Load candles (path = dataset identity; query = optional window/limit)
 curl -s "http://127.0.0.1:3000/api/v1/candles/bybit/spot/BTCUSDT/1m?limit=100" | jq 'length'
@@ -266,19 +296,25 @@ curl -s "http://127.0.0.1:3000/api/v1/candles/bybit/spot/BTCUSDT/1m?limit=100" |
 │   │       ├── jobs/           # queue, worker, types, processors
 │   │       └── services/       # candle_service, etc.
 │   ├── common/                 # shared types (Exchange, candles, …)
-│   ├── studio/                 # GraphSpec + runtime (validate, execute, nodes)
-│   └── warehouse/              # Parquet I/O, catalog builder, downloader
+│   ├── studio/                 # GraphSpec + runtime + IndicatorCatalog
+│   └── warehouse/              # Parquet I/O, candle catalog builder, downloader
 ├── frontend/
 │   ├── app/
 │   │   ├── data/                      # Data Management
-│   │   └── page.tsx                   # Market Research
+│   │   └── page.tsx                   # Market Research (chart + indicator browser)
 │   ├── components/chart/
-│   │   ├── CandleChartPanel.tsx       # chart panel + status overlays
+│   │   ├── CandleChartPanel.tsx       # chart panel + legend + status overlays
+│   │   ├── ChartLegend.tsx            # indicator overlay legend
+│   │   ├── IndicatorBrowser.tsx       # catalog picker dialog
+│   │   ├── IndicatorLayerRow.tsx      # per-instance legend row
+│   │   ├── IndicatorSettingsDialog.tsx
 │   │   └── NoDatasetsMessage.tsx      # empty-catalog guidance
 │   ├── hooks/
-│   │   ├── chart/                     # useCandleChart, history scroll, resize
-│   │   ├── useCatalog.ts              # catalog snapshot + getMarketSymbols()
+│   │   ├── chart/                     # useCandleChart, useChartIndicators, scroll, resize
+│   │   ├── useCatalog.ts              # candle catalog + getMarketSymbols()
+│   │   ├── useIndicatorCatalog.ts     # indicator catalog query
 │   │   └── useJobs.ts                 # job list + active job summary
+│   ├── lib/indicators/                # registry, run builder, color pool, catalog client
 │   └── lib/chart/                     # datafeed, cache, events, viewport helpers
 └── README.md
 ```
@@ -295,7 +331,7 @@ Long-term goal: an intelligent workspace where users interact with AI agents (ch
 - Use RAG on documents and private knowledge bases
 - Register and run autonomous on-chain agents (ERC-8004 / Solana)
 
-None of that is implemented yet; the current milestone is **reliable market data ingest + catalog + chart UX + `GraphSpec` foundation** for agent-composed indicators and strategies.
+None of that is implemented yet; the current milestone is **reliable market data ingest + catalogs + chart UX with dynamic indicators + `GraphSpec` foundation** for agent-composed strategies.
 
 ---
 

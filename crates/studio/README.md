@@ -66,6 +66,10 @@ let store = execute(&graph, &registry, &ctx).await?;
 
 The backend `POST /api/v1/studio/runs` endpoint wraps a `GraphSpec` with an `outputs` list of port strings (`node_id.port_name`) and returns only the requested ports plus run `meta`.
 
+## Indicator catalog
+
+`IndicatorCatalog` is built from `NodeRegistry::indicator_metas()` and serializes each indicator kind with its input/output ports and scalar params (type, default, min, max). The backend exposes it at `GET /api/v1/catalog/indicators`; the Market Research UI uses it to populate the indicator browser.
+
 ## Built-in nodes
 
 Registered via `builtin_registry()` / `nodes::register_builtins`:
@@ -108,6 +112,7 @@ Datasource into SMA:
 ```
 src/
   spec/          # GraphSpec, NodeSpec, Edge, PortRef
+  catalog.rs     # IndicatorCatalog (from registry metadata)
   error.rs       # graph/runtime errors
   registry.rs    # NodeRegistry, builtin_registry()
   runtime/
