@@ -86,7 +86,7 @@ export function useChartIndicators({
       let series = seriesByIdRef.current.get(instance.id);
       if (!series) {
         series = chart.addSeries(LineSeries, {
-          color: definition.seriesStyle.color,
+          color: instance.color,
           lineWidth: definition.seriesStyle.lineWidth,
           title: definition.label(instance.params),
           visible: instance.visible,
@@ -97,6 +97,30 @@ export function useChartIndicators({
       return series;
     },
     [chartRef],
+  );
+
+  const syncSeriesVisibility = useCallback(
+    (instance: IndicatorInstance) => {
+      const definition = INDICATOR_REGISTRY[instance.kind];
+      if (!definition) {
+        return;
+      }
+
+      const series = instance.visible
+        ? ensureSeries(instance)
+        : seriesByIdRef.current.get(instance.id);
+
+      if (!series) {
+        return;
+      }
+
+      series.applyOptions({
+        color: instance.color,
+        visible: instance.visible,
+        title: definition.label(instance.params),
+      });
+    },
+    [ensureSeries],
   );
 
   const applyCachedData = useCallback(
@@ -116,12 +140,21 @@ export function useChartIndicators({
 
       series.setData(cachedData);
       series.applyOptions({
+        color: instance.color,
         visible: instance.visible,
         title: definition.label(instance.params),
       });
     },
     [ensureSeries],
   );
+
+  const clearCacheForInstance = useCallback((instanceId: string) => {
+    for (const cacheKey of dataCacheRef.current.keys()) {
+      if (cacheKey.includes(`:${instanceId}:`)) {
+        dataCacheRef.current.delete(cacheKey);
+      }
+    }
+  }, []);
 
   const fetchAndApply = useCallback(
     async (
@@ -148,7 +181,7 @@ export function useChartIndicators({
         return;
       }
 
-      const generation = fetchGenerationRef.current;
+      const generation = ++fetchGenerationRef.current;
 
       for (const instance of visibleInstances) {
         setInstanceRuntime(instance.id, true, null);
@@ -177,8 +210,16 @@ export function useChartIndicators({
 
           const series = ensureSeries(instance);
           if (series) {
+            const latest = useChartIndicatorsStore
+              .getState()
+              .instances.find((item) => item.id === instance.id);
+
             series.setData(lineData);
-            series.applyOptions({ visible: true });
+            series.applyOptions({
+              color: latest?.color ?? instance.color,
+              visible: latest?.visible ?? true,
+              title: definition.label(latest?.params ?? instance.params),
+            });
           }
 
           setInstanceRuntime(instance.id, false, null);
@@ -205,21 +246,20 @@ export function useChartIndicators({
     for (const instanceId of seriesByIdRef.current.keys()) {
       if (!currentIds.has(instanceId)) {
         removeSeries(instanceId);
-
-        for (const cacheKey of dataCacheRef.current.keys()) {
-          if (cacheKey.includes(`:${instanceId}:`)) {
-            dataCacheRef.current.delete(cacheKey);
-          }
-        }
+        clearCacheForInstance(instanceId);
       }
+    }
+
+    if (!chartReady) {
+      return;
+    }
+
+    for (const instance of instances) {
+      syncSeriesVisibility(instance);
     }
 
     const visibleInstances = instances.filter((instance) => instance.visible);
     if (visibleInstances.length === 0) {
-      return;
-    }
-
-    if (!chartReady) {
       return;
     }
 
@@ -231,6 +271,11 @@ export function useChartIndicators({
     });
 
     if (needsFetch) {
+      for (const instance of visibleInstances) {
+        if (!dataCacheRef.current.has(buildCacheKey(marketKey, instance))) {
+          clearCacheForInstance(instance.id);
+        }
+      }
       void fetchAndApply(instances, marketKey, limit);
       return;
     }
@@ -241,11 +286,13 @@ export function useChartIndicators({
   }, [
     applyCachedData,
     chartReady,
+    clearCacheForInstance,
     datafeedRef,
     fetchAndApply,
     instances,
     marketKey,
     removeSeries,
+    syncSeriesVisibility,
   ]);
 
   useEffect(() => {

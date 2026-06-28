@@ -17,6 +17,7 @@ describe("buildIndicatorRunRequest", () => {
           kind: "indicator.sma",
           params: { period: 20 },
           visible: true,
+          color: "#f59e0b",
         },
       ],
       limit: 500,
@@ -62,6 +63,7 @@ describe("buildIndicatorRunRequest", () => {
           kind: "indicator.sma",
           params: { period: 20 },
           visible: false,
+          color: "#f59e0b",
         },
       ],
     });

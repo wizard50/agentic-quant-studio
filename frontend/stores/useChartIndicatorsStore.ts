@@ -1,6 +1,8 @@
 import { create } from "zustand";
 import {
+  createInstanceId,
   INDICATOR_REGISTRY,
+  pickIndicatorColor,
   SMA_KIND,
   TEMP_SMA_INSTANCE_ID,
 } from "@/lib/indicators";
@@ -38,7 +40,7 @@ export const useChartIndicatorsStore = create<ChartIndicatorsState>(
         throw new Error(`Unknown indicator kind: ${kind}`);
       }
 
-      const instanceId = id ?? `${kind}-${Date.now()}`;
+      const instanceId = id ?? createInstanceId(kind);
       const params = { ...definition.defaultParams };
 
       if (paramsOverride) {
@@ -49,19 +51,22 @@ export const useChartIndicatorsStore = create<ChartIndicatorsState>(
         }
       }
 
-      const instance: IndicatorInstance = {
-        id: instanceId,
-        kind,
-        params,
-        visible: true,
-      };
+      set((state) => {
+        const existing = state.instances.filter(
+          (item) => item.id !== instanceId,
+        );
+        const instance: IndicatorInstance = {
+          id: instanceId,
+          kind,
+          params,
+          visible: true,
+          color: pickIndicatorColor(existing),
+        };
 
-      set((state) => ({
-        instances: [
-          ...state.instances.filter((item) => item.id !== instanceId),
-          instance,
-        ],
-      }));
+        return {
+          instances: [...existing, instance],
+        };
+      });
 
       return instanceId;
     },

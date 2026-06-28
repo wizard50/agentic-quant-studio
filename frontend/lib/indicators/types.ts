@@ -8,6 +8,7 @@ export interface IndicatorInstance {
   kind: string;
   params: IndicatorParams;
   visible: boolean;
+  color: string;
 }
 
 export interface ParamField {
@@ -30,10 +31,12 @@ export interface GraphContribution {
 
 export interface IndicatorDefinition {
   kind: string;
+  name: string;
+  description?: string;
   label: (params: IndicatorParams) => string;
   defaultParams: IndicatorParams;
   configSchema: ParamField[];
-  seriesStyle: { color: string; lineWidth: 1 | 2 | 3 | 4 };
+  seriesStyle: { lineWidth: 1 | 2 | 3 | 4 };
   contribute: (ctx: {
     dsNodeId: string;
     nodeId: string;

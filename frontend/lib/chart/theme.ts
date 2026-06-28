@@ -5,7 +5,6 @@ export const CHART_COLORS = {
   up: "#22c55e",
   down: "#ef4444",
   volume: "#3b82f6",
-  sma: "#f59e0b",
 } as const;
 
 export function volumeBarColor(isUp: boolean): string {
