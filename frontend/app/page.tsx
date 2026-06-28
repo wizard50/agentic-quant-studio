@@ -14,7 +14,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { IndicatorBrowser } from "@/components/chart/IndicatorBrowser";
-import { IndicatorToolbar } from "@/components/chart/IndicatorToolbar";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 
 export default function QuantResearchDashboard() {
@@ -75,7 +74,7 @@ export default function QuantResearchDashboard() {
         </div>
       </header>
 
-      <div className="h-14 border-b border-zinc-800 bg-zinc-900 px-6 flex items-center justify-between text-sm">
+      <div className="h-14 border-b border-zinc-800 bg-zinc-900 px-6 flex items-center text-sm">
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-2">
             <Label className="text-zinc-400 w-16">Exchange</Label>
@@ -138,16 +137,16 @@ export default function QuantResearchDashboard() {
                 <SelectItem value="1d">1 day</SelectItem>
               </SelectContent>
             </Select>
-            <div
-              className="h-6 w-px bg-zinc-700"
-              role="separator"
-              aria-orientation="vertical"
-            />
-            <IndicatorBrowser />
           </div>
-        </div>
 
-        <IndicatorToolbar />
+          <div
+            className="h-6 w-px bg-zinc-700"
+            role="separator"
+            aria-orientation="vertical"
+          />
+
+          <IndicatorBrowser />
+        </div>
       </div>
 
       {catalogLoading ? (

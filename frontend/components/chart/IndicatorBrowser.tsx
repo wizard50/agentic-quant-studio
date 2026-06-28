@@ -13,18 +13,21 @@ import {
 } from "@/components/ui/dialog";
 import { useIndicatorCatalog } from "@/hooks/useIndicatorCatalog";
 import type { IndicatorCatalogEntry } from "@/lib/indicators/catalog";
+import { defaultParamsFromCatalog } from "@/lib/indicators/instance";
 import {
   getIndicatorDescription,
   getIndicatorName,
 } from "@/lib/indicators/labels";
 import { cn } from "@/lib/utils";
+import { useChartIndicatorsStore } from "@/stores/useChartIndicatorsStore";
 
 export function IndicatorBrowser() {
   const [open, setOpen] = useState(false);
   const { data, isLoading, error } = useIndicatorCatalog();
+  const addInstance = useChartIndicatorsStore((state) => state.addInstance);
 
   const handleSelect = (entry: IndicatorCatalogEntry) => {
-    console.log("Selected indicator:", entry);
+    addInstance(entry.kind, defaultParamsFromCatalog(entry));
     setOpen(false);
   };
 
@@ -34,10 +37,11 @@ export function IndicatorBrowser() {
         <Button
           type="button"
           variant="outline"
-          size="icon-sm"
+          size="sm"
           title="Browse indicators"
           aria-label="Browse indicators"
         >
+          Indicator
           <LineChart />
         </Button>
       </DialogTrigger>

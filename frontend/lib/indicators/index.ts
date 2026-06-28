@@ -6,6 +6,13 @@ export type {
   IndicatorCatalog,
   IndicatorCatalogEntry,
 } from "./catalog";
+export { INDICATOR_COLOR_POOL, pickIndicatorColor } from "./colors";
+export {
+  createInstanceId,
+  defaultParamsFromCatalog,
+  getInstanceColor,
+  getInstanceLabel,
+} from "./instance";
 export {
   getIndicatorDescription,
   getIndicatorLabel,

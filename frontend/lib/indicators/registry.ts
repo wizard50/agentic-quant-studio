@@ -1,5 +1,4 @@
 import { toLineSeriesData } from "@/lib/chart/mapSeries";
-import { CHART_COLORS } from "@/lib/chart/theme";
 import { parseSeriesF64, parseSeriesI64 } from "@/lib/studio/api";
 import type { IndicatorDefinition } from "./types";
 
@@ -13,7 +12,7 @@ export const smaDefinition: IndicatorDefinition = {
   label: (params) => `SMA ${params.period ?? 20}`,
   defaultParams: { period: 20 },
   configSchema: [{ name: "period", type: "number", label: "Period", min: 1 }],
-  seriesStyle: { color: CHART_COLORS.sma, lineWidth: 2 },
+  seriesStyle: { lineWidth: 2 },
   contribute: ({ dsNodeId, nodeId, params }) => ({
     nodes: [{ id: nodeId, kind: SMA_KIND, params }],
     edges: [{ from: `${dsNodeId}.close`, to: `${nodeId}.input` }],
