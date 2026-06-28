@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use talib_rs::overlap::sma;
+use talib_rs::momentum::rsi;
 
 use crate::{
     error::Result,
@@ -11,18 +11,18 @@ use crate::{
 
 use super::common::{execute_period_overlay, single_series_value_meta};
 
-pub struct SmaOp;
+pub struct RsiOp;
 
-impl SmaOp {
+impl RsiOp {
     pub fn new() -> Self {
         Self
     }
 }
 
 #[async_trait]
-impl NodeOp for SmaOp {
+impl NodeOp for RsiOp {
     fn meta(&self) -> NodeMeta {
-        single_series_value_meta("indicator.sma", 20)
+        single_series_value_meta("indicator.rsi", 14)
     }
 
     async fn execute(
@@ -31,6 +31,6 @@ impl NodeOp for SmaOp {
         inputs: ResolvedInputs,
         params: &serde_json::Value,
     ) -> Result<ResolvedOutputs> {
-        execute_period_overlay(inputs, params, sma)
+        execute_period_overlay(inputs, params, rsi)
     }
 }

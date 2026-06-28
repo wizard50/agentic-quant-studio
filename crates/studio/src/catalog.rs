@@ -132,25 +132,42 @@ mod tests {
     use super::*;
     use crate::registry::builtin_registry;
 
+    fn indicator_entry<'a>(json: &'a serde_json::Value, kind: &str) -> &'a serde_json::Value {
+        json["indicators"]
+            .as_array()
+            .unwrap_or_else(|| panic!("expected indicators array"))
+            .iter()
+            .find(|entry| entry["kind"] == kind)
+            .unwrap_or_else(|| panic!("missing indicator kind: {kind}"))
+    }
+
+    fn assert_period_line_indicator(entry: &serde_json::Value, default_period: u64) {
+        assert_eq!(entry["inputs"][0]["name"], "input");
+        assert_eq!(entry["inputs"][0]["type"], "number");
+        assert_eq!(entry["inputs"][0]["series"], true);
+        assert_eq!(entry["outputs"][0]["name"], "value");
+        assert_eq!(entry["outputs"][0]["type"], "number");
+        assert_eq!(entry["outputs"][0]["series"], true);
+        assert_eq!(entry["params"][0]["name"], "period");
+        assert_eq!(entry["params"][0]["type"], "integer");
+        assert_eq!(entry["params"][0]["default"], default_period);
+        assert_eq!(entry["params"][0]["min"], 1);
+    }
+
     #[test]
     fn serializes_normalized_indicator_catalog() {
         let registry = builtin_registry();
         let catalog = IndicatorCatalog::from_registry(&registry);
         let json = serde_json::to_value(&catalog).unwrap();
+        let indicators = json["indicators"].as_array().unwrap();
 
-        assert_eq!(json["indicators"].as_array().unwrap().len(), 1);
+        assert_eq!(indicators.len(), 3);
+        assert_eq!(indicators[0]["kind"], "indicator.ema");
+        assert_eq!(indicators[1]["kind"], "indicator.rsi");
+        assert_eq!(indicators[2]["kind"], "indicator.sma");
 
-        let sma = &json["indicators"][0];
-        assert_eq!(sma["kind"], "indicator.sma");
-        assert_eq!(sma["inputs"][0]["name"], "input");
-        assert_eq!(sma["inputs"][0]["type"], "number");
-        assert_eq!(sma["inputs"][0]["series"], true);
-        assert_eq!(sma["outputs"][0]["name"], "value");
-        assert_eq!(sma["outputs"][0]["type"], "number");
-        assert_eq!(sma["outputs"][0]["series"], true);
-        assert_eq!(sma["params"][0]["name"], "period");
-        assert_eq!(sma["params"][0]["type"], "integer");
-        assert_eq!(sma["params"][0]["default"], 20);
-        assert_eq!(sma["params"][0]["min"], 1);
+        assert_period_line_indicator(indicator_entry(&json, "indicator.ema"), 20);
+        assert_period_line_indicator(indicator_entry(&json, "indicator.sma"), 20);
+        assert_period_line_indicator(indicator_entry(&json, "indicator.rsi"), 14);
     }
 }

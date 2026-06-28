@@ -78,6 +78,8 @@ Registered via `builtin_registry()` / `nodes::register_builtins`:
 |------|----------|
 | `datasource.candles` | DataSource |
 | `indicator.sma` | Indicator |
+| `indicator.ema` | Indicator |
+| `indicator.rsi` | Indicator |
 
 ## Example
 
@@ -125,7 +127,7 @@ src/
     value.rs     # SeriesI64, SeriesF64, SeriesBool, Value
   nodes/
     datasource/  # datasource.candles
-    indicator/   # indicator.sma
+    indicator/   # indicator.sma, indicator.ema, indicator.rsi (+ common helpers)
 ```
 
 ## Tests

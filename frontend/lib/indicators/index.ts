@@ -21,9 +21,13 @@ export {
 export { buildIndicatorRunRequest } from "./buildRunRequest";
 export type { IndicatorRunParams } from "./buildRunRequest";
 export {
+  EMA_KIND,
   INDICATOR_REGISTRY,
+  RSI_KIND,
   SMA_KIND,
   TEMP_SMA_INSTANCE_ID,
+  emaDefinition,
+  rsiDefinition,
   smaDefinition,
 } from "./registry";
 export type {

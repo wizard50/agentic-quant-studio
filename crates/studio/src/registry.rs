@@ -68,9 +68,16 @@ mod tests {
         let registry = builtin_registry();
         let indicators = registry.indicator_metas();
 
-        assert_eq!(indicators.len(), 1);
-        assert_eq!(indicators[0].kind, "indicator.sma");
-        assert_eq!(indicators[0].params[0].name, "period");
-        assert_eq!(indicators[0].params[0].kind, ParamKind::U32);
+        assert_eq!(indicators.len(), 3);
+        assert_eq!(indicators[0].kind, "indicator.ema");
+        assert_eq!(indicators[1].kind, "indicator.rsi");
+        assert_eq!(indicators[2].kind, "indicator.sma");
+
+        for meta in &indicators {
+            assert_eq!(meta.params[0].name, "period");
+            assert_eq!(meta.params[0].kind, ParamKind::U32);
+        }
+
+        assert_eq!(indicators[1].params[0].default, Some(serde_json::json!(14)));
     }
 }

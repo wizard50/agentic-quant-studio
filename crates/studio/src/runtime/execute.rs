@@ -88,9 +88,8 @@ mod tests {
     };
     use common::types::Candle;
 
-    #[tokio::test]
-    async fn execute_datasource_wires_close_to_sma() {
-        let candles = vec![
+    fn sample_candles() -> Vec<Candle> {
+        vec![
             Candle {
                 timestamp: 1,
                 open: 1.0,
@@ -115,11 +114,14 @@ mod tests {
                 close: 3.0,
                 volume: 12.0,
             },
-        ];
-        let ctx = ExecutionContext::new(Arc::new(FakeCandleSource::new(candles)));
+        ]
+    }
+
+    async fn execute_close_to_indicator(kind: &str, node_id: &str) {
+        let ctx = ExecutionContext::new(Arc::new(FakeCandleSource::new(sample_candles())));
 
         let graph = GraphSpec {
-            id: "ds-sma".to_string(),
+            id: format!("ds-{node_id}"),
             version: 1,
             kind: GraphKind::Chart,
             nodes: vec![
@@ -134,19 +136,34 @@ mod tests {
                     }),
                 },
                 NodeSpec {
-                    id: "sma20".to_string(),
-                    kind: "indicator.sma".to_string(),
+                    id: node_id.to_string(),
+                    kind: kind.to_string(),
                     params: serde_json::json!({ "period": 2 }),
                 },
             ],
             edges: vec![Edge {
                 from: PortRef::new("ds1", "close").unwrap(),
-                to: PortRef::new("sma20", "input").unwrap(),
+                to: PortRef::new(node_id, "input").unwrap(),
             }],
         };
 
         let store = execute(&graph, &builtin_registry(), &ctx).await.unwrap();
-        let value = store.get(&PortRef::new("sma20", "value").unwrap()).unwrap();
+        let value = store.get(&PortRef::new(node_id, "value").unwrap()).unwrap();
         assert!(matches!(value.as_ref(), Value::SeriesF64(_)));
+    }
+
+    #[tokio::test]
+    async fn execute_datasource_wires_close_to_sma() {
+        execute_close_to_indicator("indicator.sma", "sma20").await;
+    }
+
+    #[tokio::test]
+    async fn execute_datasource_wires_close_to_ema() {
+        execute_close_to_indicator("indicator.ema", "ema20").await;
+    }
+
+    #[tokio::test]
+    async fn execute_datasource_wires_close_to_rsi() {
+        execute_close_to_indicator("indicator.rsi", "rsi14").await;
     }
 }
