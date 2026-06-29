@@ -1,5 +1,6 @@
 pub mod candles;
 pub mod context;
+pub mod display;
 pub mod execute;
 pub mod node;
 pub mod plan;

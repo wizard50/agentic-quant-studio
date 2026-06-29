@@ -1,5 +1,4 @@
 use async_trait::async_trait;
-use talib_rs::overlap::sma;
 
 use crate::{
     error::Result,
@@ -9,28 +8,28 @@ use crate::{
     },
 };
 
-use super::common::{execute_period_overlay, overlay_chart_defaults, single_series_value_meta};
+use super::common::{bool_signal_meta, execute_and};
 
-pub struct SmaOp;
+pub struct AndOp;
 
-impl SmaOp {
+impl AndOp {
     pub fn new() -> Self {
         Self
     }
 }
 
 #[async_trait]
-impl NodeOp for SmaOp {
+impl NodeOp for AndOp {
     fn meta(&self) -> NodeMeta {
-        single_series_value_meta("indicator.sma", 20, overlay_chart_defaults(20))
+        bool_signal_meta("logic.and")
     }
 
     async fn execute(
         &self,
         _ctx: &ExecutionContext,
         inputs: ResolvedInputs,
-        params: &serde_json::Value,
+        _params: &serde_json::Value,
     ) -> Result<ResolvedOutputs> {
-        execute_period_overlay(inputs, params, sma)
+        execute_and(inputs)
     }
 }

@@ -2,6 +2,7 @@
 
 import { useCandleChart, type UseCandleChartParams } from "@/hooks/chart";
 import { ChartLegend } from "@/components/chart/ChartLegend";
+import { OscillatorChartsPanel } from "@/components/chart/OscillatorChartsPanel";
 import { cn } from "@/lib/utils";
 
 interface CandleChartPanelProps extends UseCandleChartParams {
@@ -12,11 +13,17 @@ export function CandleChartPanel({
   className,
   ...params
 }: CandleChartPanelProps) {
-  const { containerRef, status, error } = useCandleChart(params);
+  const { containerRef, chartRef, datafeedRef, marketKey, status, error } =
+    useCandleChart(params);
 
   return (
-    <div className={cn("flex-1 p-6 overflow-hidden flex flex-col", className)}>
-      <div className="relative flex-1 border border-zinc-800 rounded-3xl overflow-hidden bg-zinc-950">
+    <div
+      className={cn(
+        "flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-6",
+        className,
+      )}
+    >
+      <div className="relative min-h-60 flex-1 overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-950">
         <div ref={containerRef} className="absolute inset-0" />
 
         <ChartLegend visible={status === "ready"} />
@@ -34,6 +41,13 @@ export function CandleChartPanel({
           </div>
         )}
       </div>
+
+      <OscillatorChartsPanel
+        mainChartRef={chartRef}
+        datafeedRef={datafeedRef}
+        marketKey={marketKey}
+        chartReady={status === "ready"}
+      />
     </div>
   );
 }

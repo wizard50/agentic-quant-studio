@@ -6,6 +6,11 @@ export type {
   DatafeedEventHandlers,
 } from "./datafeedEvent";
 export { createChartWithSeries } from "./createChart";
+export { createOscillatorChart } from "./createOscillatorChart";
+export {
+  syncTimeScaleBetween,
+  syncVisibleLogicalRangeBetween,
+} from "./syncTimeScale";
 export { CandleDatafeed, PAGE_SIZE } from "./datafeed";
 export {
   HISTORY_PRELOAD_THRESHOLD,

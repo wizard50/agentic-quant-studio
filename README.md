@@ -109,7 +109,7 @@ Foundation for agent-composed **computation graphs** — indicators, logic, and 
 - **`validate`** — node ids, registry kinds, port types, unique input wires, acyclic graph
 - **`execute`** — topological execution into a `PortStore`
 - **`NodeRegistry`** / **`NodeOp`** — pluggable node ops with port/param metadata
-- **Built-in ops** — `datasource.candles`, `indicator.sma`
+- **Built-in ops** — `datasource.candles`, `indicator.sma`, `indicator.ema`, `indicator.rsi`
 - **`ExecutionContext`** / **`CandleSource`** — async candle loading for data-source nodes
 - **`IndicatorCatalog`** — serializable indicator metadata (kinds, ports, params with types/defaults/min/max) built from `NodeRegistry::indicator_metas()`; exposed as **`GET /api/v1/catalog/indicators`**
 

@@ -30,6 +30,14 @@ export class CandleDatafeed {
     return this.cache.getCount();
   }
 
+  getOldestTimestamp(): number | null {
+    return this.cache.getOldestTimestamp();
+  }
+
+  getNewestTimestamp(): number | null {
+    return this.cache.getNewestTimestamp();
+  }
+
   getCandles(): Candle[] {
     return this.cache.getAll();
   }

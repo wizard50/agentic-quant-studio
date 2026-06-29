@@ -28,6 +28,9 @@ export interface UseCandleChartParams {
 
 export interface UseCandleChartResult {
   containerRef: RefObject<HTMLDivElement | null>;
+  chartRef: RefObject<IChartApi | null>;
+  datafeedRef: RefObject<CandleDatafeed>;
+  marketKey: SeriesKey;
   status: ChartStatus;
   error: Error | null;
 }
@@ -137,6 +140,9 @@ export function useCandleChart(
 
   return {
     containerRef,
+    chartRef,
+    datafeedRef,
+    marketKey,
     status: displayStatus,
     error: displayError,
   };

@@ -1,5 +1,18 @@
 export type CatalogType = "integer" | "number" | "string" | "boolean";
 
+export type ChartRole = "overlay" | "oscillator";
+
+export interface ValueRange {
+  min: number;
+  max: number;
+}
+
+export interface ChartDefaults {
+  role: ChartRole;
+  value_range?: ValueRange;
+  warmup_bars?: number;
+}
+
 export interface CatalogPort {
   name: string;
   type: CatalogType;
@@ -19,6 +32,7 @@ export interface IndicatorCatalogEntry {
   inputs: CatalogPort[];
   outputs: CatalogPort[];
   params: CatalogParam[];
+  chart_defaults?: ChartDefaults;
 }
 
 export interface IndicatorCatalog {

@@ -64,13 +64,46 @@ mod tests {
     use crate::runtime::node::ParamKind;
 
     #[test]
+    fn builtin_registry_includes_logic_nodes() {
+        let registry = builtin_registry();
+
+        for kind in [
+            "literal.number",
+            "literal.bool",
+            "logic.crossover",
+            "logic.crossunder",
+            "logic.gt",
+            "logic.lt",
+            "logic.and",
+            "logic.or",
+        ] {
+            assert!(registry.get(kind).is_some(), "missing builtin node: {kind}");
+        }
+    }
+
+    #[test]
+    fn literal_metas_are_not_included_in_indicator_catalog() {
+        let registry = builtin_registry();
+        let indicators = registry.indicator_metas();
+
+        assert!(!indicators.iter().any(|meta| meta.kind.starts_with("literal.")));
+    }
+
+    #[test]
     fn indicator_metas_returns_only_indicator_nodes() {
         let registry = builtin_registry();
         let indicators = registry.indicator_metas();
 
-        assert_eq!(indicators.len(), 1);
-        assert_eq!(indicators[0].kind, "indicator.sma");
-        assert_eq!(indicators[0].params[0].name, "period");
-        assert_eq!(indicators[0].params[0].kind, ParamKind::U32);
+        assert_eq!(indicators.len(), 3);
+        assert_eq!(indicators[0].kind, "indicator.ema");
+        assert_eq!(indicators[1].kind, "indicator.rsi");
+        assert_eq!(indicators[2].kind, "indicator.sma");
+
+        for meta in &indicators {
+            assert_eq!(meta.params[0].name, "period");
+            assert_eq!(meta.params[0].kind, ParamKind::U32);
+        }
+
+        assert_eq!(indicators[1].params[0].default, Some(serde_json::json!(14)));
     }
 }

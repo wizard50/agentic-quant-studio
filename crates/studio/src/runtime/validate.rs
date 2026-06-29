@@ -128,11 +128,9 @@ mod tests {
 "#;
 
     #[test]
-    fn validate_unknown_kind_fails() {
+    fn validate_golden_cross_graph() {
         let graph: GraphSpec = serde_json::from_str(GOLDEN_CROSS_JSON).unwrap();
-        let registry = builtin_registry();
-        let err = validate(&graph, &registry).unwrap_err();
-        assert!(matches!(err, Error::UnknownKind(_)));
+        validate(&graph, &builtin_registry()).unwrap();
     }
 
     #[test]

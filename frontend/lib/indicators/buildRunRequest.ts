@@ -9,12 +9,16 @@ export interface IndicatorRunParams {
   settings: SeriesKey;
   instances: IndicatorInstance[];
   limit?: number;
+  startMs?: number;
+  endMs?: number;
 }
 
 export function buildIndicatorRunRequest({
   settings,
   instances,
   limit,
+  startMs,
+  endMs,
 }: IndicatorRunParams): StudioRunRequest | null {
   const activeInstances = instances.filter((instance) => instance.visible);
   if (activeInstances.length === 0) {
@@ -31,6 +35,12 @@ export function buildIndicatorRunRequest({
 
   if (limit != null) {
     dsParams.limit = limit;
+  }
+  if (startMs != null) {
+    dsParams.start_ms = startMs;
+  }
+  if (endMs != null) {
+    dsParams.end_ms = endMs;
   }
 
   const nodes: StudioRunRequest["graph"]["nodes"] = [

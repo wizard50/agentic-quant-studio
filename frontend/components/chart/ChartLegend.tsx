@@ -1,6 +1,7 @@
 "use client";
 
 import { IndicatorLayerRow } from "./IndicatorLayerRow";
+import { filterOverlayInstances } from "@/lib/indicators";
 import { useChartIndicatorsStore } from "@/stores/useChartIndicatorsStore";
 
 interface ChartLegendProps {
@@ -8,7 +9,9 @@ interface ChartLegendProps {
 }
 
 export function ChartLegend({ visible }: ChartLegendProps) {
-  const instances = useChartIndicatorsStore((state) => state.instances);
+  const instances = filterOverlayInstances(
+    useChartIndicatorsStore((state) => state.instances),
+  );
 
   if (!visible || instances.length === 0) {
     return null;
