@@ -166,4 +166,450 @@ mod tests {
     async fn execute_datasource_wires_close_to_rsi() {
         execute_close_to_indicator("indicator.rsi", "rsi14").await;
     }
+
+    fn golden_cross_candles() -> Vec<Candle> {
+        (0..6)
+            .map(|index| {
+                let close = match index {
+                    0..=3 => 10.0,
+                    4 => 20.0,
+                    _ => 25.0,
+                };
+
+                Candle {
+                    timestamp: index as i64 + 1,
+                    open: close,
+                    high: close + 1.0,
+                    low: close - 1.0,
+                    close,
+                    volume: 10.0 + index as f64,
+                }
+            })
+            .collect()
+    }
+
+    #[tokio::test]
+    async fn execute_golden_cross_emits_crossover_signal() {
+        let ctx = ExecutionContext::new(Arc::new(FakeCandleSource::new(golden_cross_candles())));
+
+        let graph = GraphSpec {
+            id: "golden-cross-test".to_string(),
+            version: 1,
+            kind: GraphKind::Chart,
+            nodes: vec![
+                NodeSpec {
+                    id: "ds1".to_string(),
+                    kind: "datasource.candles".to_string(),
+                    params: serde_json::json!({
+                        "exchange": "bybit",
+                        "category": "spot",
+                        "symbol": "BTCUSDT",
+                        "interval": "1d"
+                    }),
+                },
+                NodeSpec {
+                    id: "sma_fast".to_string(),
+                    kind: "indicator.sma".to_string(),
+                    params: serde_json::json!({ "period": 2 }),
+                },
+                NodeSpec {
+                    id: "sma_slow".to_string(),
+                    kind: "indicator.sma".to_string(),
+                    params: serde_json::json!({ "period": 3 }),
+                },
+                NodeSpec {
+                    id: "cross".to_string(),
+                    kind: "logic.crossover".to_string(),
+                    params: serde_json::json!({}),
+                },
+            ],
+            edges: vec![
+                Edge {
+                    from: PortRef::new("ds1", "close").unwrap(),
+                    to: PortRef::new("sma_fast", "input").unwrap(),
+                },
+                Edge {
+                    from: PortRef::new("ds1", "close").unwrap(),
+                    to: PortRef::new("sma_slow", "input").unwrap(),
+                },
+                Edge {
+                    from: PortRef::new("sma_fast", "value").unwrap(),
+                    to: PortRef::new("cross", "fast").unwrap(),
+                },
+                Edge {
+                    from: PortRef::new("sma_slow", "value").unwrap(),
+                    to: PortRef::new("cross", "slow").unwrap(),
+                },
+            ],
+        };
+
+        let store = execute(&graph, &builtin_registry(), &ctx).await.unwrap();
+        let signal = store
+            .get(&PortRef::new("cross", "signal").unwrap())
+            .unwrap();
+
+        let Value::SeriesBool(series) = signal.as_ref() else {
+            panic!("expected series_bool output");
+        };
+
+        assert_eq!(series.values.len(), 6);
+        assert_eq!(series.values[4], Some(true));
+        assert!(
+            series
+                .values
+                .iter()
+                .filter(|value| **value == Some(true))
+                .count()
+                == 1
+        );
+    }
+
+    fn death_cross_candles() -> Vec<Candle> {
+        (0..7)
+            .map(|index| {
+                let close = match index {
+                    0..=4 => 25.0,
+                    5 => 10.0,
+                    _ => 5.0,
+                };
+
+                Candle {
+                    timestamp: index as i64 + 1,
+                    open: close,
+                    high: close + 1.0,
+                    low: close - 1.0,
+                    close,
+                    volume: 10.0 + index as f64,
+                }
+            })
+            .collect()
+    }
+
+    #[tokio::test]
+    async fn execute_death_cross_emits_crossunder_signal() {
+        let ctx = ExecutionContext::new(Arc::new(FakeCandleSource::new(death_cross_candles())));
+
+        let graph = GraphSpec {
+            id: "death-cross-test".to_string(),
+            version: 1,
+            kind: GraphKind::Chart,
+            nodes: vec![
+                NodeSpec {
+                    id: "ds1".to_string(),
+                    kind: "datasource.candles".to_string(),
+                    params: serde_json::json!({
+                        "exchange": "bybit",
+                        "category": "spot",
+                        "symbol": "BTCUSDT",
+                        "interval": "1d"
+                    }),
+                },
+                NodeSpec {
+                    id: "sma_fast".to_string(),
+                    kind: "indicator.sma".to_string(),
+                    params: serde_json::json!({ "period": 2 }),
+                },
+                NodeSpec {
+                    id: "sma_slow".to_string(),
+                    kind: "indicator.sma".to_string(),
+                    params: serde_json::json!({ "period": 3 }),
+                },
+                NodeSpec {
+                    id: "cross".to_string(),
+                    kind: "logic.crossunder".to_string(),
+                    params: serde_json::json!({}),
+                },
+            ],
+            edges: vec![
+                Edge {
+                    from: PortRef::new("ds1", "close").unwrap(),
+                    to: PortRef::new("sma_fast", "input").unwrap(),
+                },
+                Edge {
+                    from: PortRef::new("ds1", "close").unwrap(),
+                    to: PortRef::new("sma_slow", "input").unwrap(),
+                },
+                Edge {
+                    from: PortRef::new("sma_fast", "value").unwrap(),
+                    to: PortRef::new("cross", "fast").unwrap(),
+                },
+                Edge {
+                    from: PortRef::new("sma_slow", "value").unwrap(),
+                    to: PortRef::new("cross", "slow").unwrap(),
+                },
+            ],
+        };
+
+        let store = execute(&graph, &builtin_registry(), &ctx).await.unwrap();
+        let signal = store
+            .get(&PortRef::new("cross", "signal").unwrap())
+            .unwrap();
+
+        let Value::SeriesBool(series) = signal.as_ref() else {
+            panic!("expected series_bool output");
+        };
+
+        assert_eq!(series.values.len(), 7);
+        assert_eq!(series.values[5], Some(true));
+        assert!(
+            series
+                .values
+                .iter()
+                .filter(|value| **value == Some(true))
+                .count()
+                == 1
+        );
+    }
+
+    #[tokio::test]
+    async fn execute_gt_compares_indicator_series() {
+        let ctx = ExecutionContext::new(Arc::new(FakeCandleSource::new(golden_cross_candles())));
+
+        let graph = GraphSpec {
+            id: "gt-test".to_string(),
+            version: 1,
+            kind: GraphKind::Chart,
+            nodes: vec![
+                NodeSpec {
+                    id: "ds1".to_string(),
+                    kind: "datasource.candles".to_string(),
+                    params: serde_json::json!({
+                        "exchange": "bybit",
+                        "category": "spot",
+                        "symbol": "BTCUSDT",
+                        "interval": "1d"
+                    }),
+                },
+                NodeSpec {
+                    id: "sma_fast".to_string(),
+                    kind: "indicator.sma".to_string(),
+                    params: serde_json::json!({ "period": 2 }),
+                },
+                NodeSpec {
+                    id: "sma_slow".to_string(),
+                    kind: "indicator.sma".to_string(),
+                    params: serde_json::json!({ "period": 3 }),
+                },
+                NodeSpec {
+                    id: "gt".to_string(),
+                    kind: "logic.gt".to_string(),
+                    params: serde_json::json!({}),
+                },
+            ],
+            edges: vec![
+                Edge {
+                    from: PortRef::new("ds1", "close").unwrap(),
+                    to: PortRef::new("sma_fast", "input").unwrap(),
+                },
+                Edge {
+                    from: PortRef::new("ds1", "close").unwrap(),
+                    to: PortRef::new("sma_slow", "input").unwrap(),
+                },
+                Edge {
+                    from: PortRef::new("sma_fast", "value").unwrap(),
+                    to: PortRef::new("gt", "left").unwrap(),
+                },
+                Edge {
+                    from: PortRef::new("sma_slow", "value").unwrap(),
+                    to: PortRef::new("gt", "right").unwrap(),
+                },
+            ],
+        };
+
+        let store = execute(&graph, &builtin_registry(), &ctx).await.unwrap();
+        let signal = store.get(&PortRef::new("gt", "signal").unwrap()).unwrap();
+
+        let Value::SeriesBool(series) = signal.as_ref() else {
+            panic!("expected series_bool output");
+        };
+
+        assert_eq!(series.values[3], Some(false));
+        assert_eq!(series.values[4], Some(true));
+        assert_eq!(series.values[5], Some(true));
+    }
+
+    #[tokio::test]
+    async fn execute_and_combines_cross_signals() {
+        let ctx = ExecutionContext::new(Arc::new(FakeCandleSource::new(golden_cross_candles())));
+
+        let graph = GraphSpec {
+            id: "and-test".to_string(),
+            version: 1,
+            kind: GraphKind::Chart,
+            nodes: vec![
+                NodeSpec {
+                    id: "ds1".to_string(),
+                    kind: "datasource.candles".to_string(),
+                    params: serde_json::json!({
+                        "exchange": "bybit",
+                        "category": "spot",
+                        "symbol": "BTCUSDT",
+                        "interval": "1d"
+                    }),
+                },
+                NodeSpec {
+                    id: "sma_fast".to_string(),
+                    kind: "indicator.sma".to_string(),
+                    params: serde_json::json!({ "period": 2 }),
+                },
+                NodeSpec {
+                    id: "sma_slow".to_string(),
+                    kind: "indicator.sma".to_string(),
+                    params: serde_json::json!({ "period": 3 }),
+                },
+                NodeSpec {
+                    id: "crossover".to_string(),
+                    kind: "logic.crossover".to_string(),
+                    params: serde_json::json!({}),
+                },
+                NodeSpec {
+                    id: "gt".to_string(),
+                    kind: "logic.gt".to_string(),
+                    params: serde_json::json!({}),
+                },
+                NodeSpec {
+                    id: "and".to_string(),
+                    kind: "logic.and".to_string(),
+                    params: serde_json::json!({}),
+                },
+            ],
+            edges: vec![
+                Edge {
+                    from: PortRef::new("ds1", "close").unwrap(),
+                    to: PortRef::new("sma_fast", "input").unwrap(),
+                },
+                Edge {
+                    from: PortRef::new("ds1", "close").unwrap(),
+                    to: PortRef::new("sma_slow", "input").unwrap(),
+                },
+                Edge {
+                    from: PortRef::new("sma_fast", "value").unwrap(),
+                    to: PortRef::new("crossover", "fast").unwrap(),
+                },
+                Edge {
+                    from: PortRef::new("sma_slow", "value").unwrap(),
+                    to: PortRef::new("crossover", "slow").unwrap(),
+                },
+                Edge {
+                    from: PortRef::new("sma_fast", "value").unwrap(),
+                    to: PortRef::new("gt", "left").unwrap(),
+                },
+                Edge {
+                    from: PortRef::new("sma_slow", "value").unwrap(),
+                    to: PortRef::new("gt", "right").unwrap(),
+                },
+                Edge {
+                    from: PortRef::new("crossover", "signal").unwrap(),
+                    to: PortRef::new("and", "left").unwrap(),
+                },
+                Edge {
+                    from: PortRef::new("gt", "signal").unwrap(),
+                    to: PortRef::new("and", "right").unwrap(),
+                },
+            ],
+        };
+
+        let store = execute(&graph, &builtin_registry(), &ctx).await.unwrap();
+        let signal = store.get(&PortRef::new("and", "signal").unwrap()).unwrap();
+
+        let Value::SeriesBool(series) = signal.as_ref() else {
+            panic!("expected series_bool output");
+        };
+
+        assert_eq!(series.values[4], Some(true));
+        assert_eq!(series.values[5], Some(false));
+        assert!(
+            series
+                .values
+                .iter()
+                .filter(|value| **value == Some(true))
+                .count()
+                == 1
+        );
+    }
+
+    fn threshold_compare_candles() -> Vec<Candle> {
+        [25.0, 35.0, 25.0, 40.0]
+            .into_iter()
+            .enumerate()
+            .map(|(index, close)| Candle {
+                timestamp: index as i64 + 1,
+                open: close,
+                high: close + 1.0,
+                low: close - 1.0,
+                close,
+                volume: 10.0 + index as f64,
+            })
+            .collect()
+    }
+
+    #[tokio::test]
+    async fn execute_literal_number_broadcasts_for_threshold_compare() {
+        let ctx =
+            ExecutionContext::new(Arc::new(FakeCandleSource::new(threshold_compare_candles())));
+
+        let graph = GraphSpec {
+            id: "literal-lt-test".to_string(),
+            version: 1,
+            kind: GraphKind::Chart,
+            nodes: vec![
+                NodeSpec {
+                    id: "ds1".to_string(),
+                    kind: "datasource.candles".to_string(),
+                    params: serde_json::json!({
+                        "exchange": "bybit",
+                        "category": "spot",
+                        "symbol": "BTCUSDT",
+                        "interval": "1d"
+                    }),
+                },
+                NodeSpec {
+                    id: "threshold".to_string(),
+                    kind: "literal.number".to_string(),
+                    params: serde_json::json!({ "value": 30.0 }),
+                },
+                NodeSpec {
+                    id: "lt".to_string(),
+                    kind: "logic.lt".to_string(),
+                    params: serde_json::json!({}),
+                },
+            ],
+            edges: vec![
+                Edge {
+                    from: PortRef::new("ds1", "timestamp").unwrap(),
+                    to: PortRef::new("threshold", "reference").unwrap(),
+                },
+                Edge {
+                    from: PortRef::new("ds1", "close").unwrap(),
+                    to: PortRef::new("lt", "left").unwrap(),
+                },
+                Edge {
+                    from: PortRef::new("threshold", "value").unwrap(),
+                    to: PortRef::new("lt", "right").unwrap(),
+                },
+            ],
+        };
+
+        let store = execute(&graph, &builtin_registry(), &ctx).await.unwrap();
+
+        let literal = store
+            .get(&PortRef::new("threshold", "value").unwrap())
+            .unwrap();
+        let Value::SeriesF64(literal_series) = literal.as_ref() else {
+            panic!("expected literal series_f64 output");
+        };
+        assert_eq!(
+            literal_series.values,
+            vec![Some(30.0), Some(30.0), Some(30.0), Some(30.0)]
+        );
+
+        let signal = store.get(&PortRef::new("lt", "signal").unwrap()).unwrap();
+        let Value::SeriesBool(series) = signal.as_ref() else {
+            panic!("expected series_bool output");
+        };
+        assert_eq!(
+            series.values,
+            vec![Some(true), Some(false), Some(true), Some(false)]
+        );
+    }
 }

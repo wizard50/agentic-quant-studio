@@ -64,6 +64,32 @@ mod tests {
     use crate::runtime::node::ParamKind;
 
     #[test]
+    fn builtin_registry_includes_logic_nodes() {
+        let registry = builtin_registry();
+
+        for kind in [
+            "literal.number",
+            "literal.bool",
+            "logic.crossover",
+            "logic.crossunder",
+            "logic.gt",
+            "logic.lt",
+            "logic.and",
+            "logic.or",
+        ] {
+            assert!(registry.get(kind).is_some(), "missing builtin node: {kind}");
+        }
+    }
+
+    #[test]
+    fn literal_metas_are_not_included_in_indicator_catalog() {
+        let registry = builtin_registry();
+        let indicators = registry.indicator_metas();
+
+        assert!(!indicators.iter().any(|meta| meta.kind.starts_with("literal.")));
+    }
+
+    #[test]
     fn indicator_metas_returns_only_indicator_nodes() {
         let registry = builtin_registry();
         let indicators = registry.indicator_metas();

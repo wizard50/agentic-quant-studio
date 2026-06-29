@@ -1,7 +1,7 @@
 use crate::error::{Error, Result};
 use crate::runtime::context::ExecutionContext;
 use crate::runtime::display::ChartDefaults;
-use crate::runtime::value::{SeriesF64, SeriesI64, Value, ValueKind};
+use crate::runtime::value::{SeriesBool, SeriesF64, SeriesI64, Value, ValueKind};
 use async_trait::async_trait;
 use std::{collections::HashMap, sync::Arc};
 
@@ -19,6 +19,8 @@ pub struct NodeMeta {
 pub enum NodeCategory {
     DataSource,
     Indicator,
+    Logic,
+    Literal,
 }
 
 #[derive(Debug, Clone)]
@@ -128,6 +130,17 @@ impl ResolvedInputs {
             other => Err(Error::TypeMismatch {
                 port: port.to_string(),
                 expected: ValueKind::SeriesF64,
+                got: other.kind(),
+            }),
+        }
+    }
+
+    pub fn series_bool(&self, port: &str) -> Result<&SeriesBool> {
+        match self.get(port)? {
+            Value::SeriesBool(series) => Ok(series.as_ref()),
+            other => Err(Error::TypeMismatch {
+                port: port.to_string(),
+                expected: ValueKind::SeriesBool,
                 got: other.kind(),
             }),
         }
