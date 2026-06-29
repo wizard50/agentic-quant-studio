@@ -1,4 +1,5 @@
-import type { LineData, Time } from "lightweight-charts";
+import type { LineSeriesPoint } from "@/lib/chart/mapSeries";
+import type { ChartDefaults } from "./catalog";
 import type { StudioRunResponse } from "@/lib/studio/types";
 
 export type IndicatorParams = Record<string, string | number>;
@@ -36,6 +37,7 @@ export interface IndicatorDefinition {
   label: (params: IndicatorParams) => string;
   defaultParams: IndicatorParams;
   configSchema: ParamField[];
+  chartDefaults: ChartDefaults;
   seriesStyle: { lineWidth: 1 | 2 | 3 | 4 };
   contribute: (ctx: {
     dsNodeId: string;
@@ -46,7 +48,7 @@ export interface IndicatorDefinition {
     response: StudioRunResponse,
     nodeId: string,
     dsNodeId: string,
-  ) => LineData<Time>[];
+  ) => LineSeriesPoint[];
 }
 
 export interface IndicatorRuntime {

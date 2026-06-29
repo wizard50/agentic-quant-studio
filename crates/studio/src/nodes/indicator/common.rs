@@ -5,12 +5,33 @@ use talib_rs::TaResult;
 use crate::{
     error::{Error, Result},
     runtime::{
+        display::{ChartDefaults, ChartRole, ValueRange},
         node::{NodeCategory, NodeMeta, Param, ParamKind, Port, ResolvedInputs, ResolvedOutputs},
         value::{SeriesF64, Value, ValueKind},
     },
 };
 
-pub fn single_series_value_meta(kind: &str, default_period: u32) -> NodeMeta {
+pub fn overlay_chart_defaults(warmup_bars: u32) -> ChartDefaults {
+    ChartDefaults {
+        role: ChartRole::Overlay,
+        value_range: None,
+        warmup_bars: Some(warmup_bars),
+    }
+}
+
+pub fn oscillator_chart_defaults(warmup_bars: u32, min: f64, max: f64) -> ChartDefaults {
+    ChartDefaults {
+        role: ChartRole::Oscillator,
+        value_range: Some(ValueRange { min, max }),
+        warmup_bars: Some(warmup_bars),
+    }
+}
+
+pub fn single_series_value_meta(
+    kind: &str,
+    default_period: u32,
+    chart_defaults: ChartDefaults,
+) -> NodeMeta {
     NodeMeta {
         kind: kind.to_string(),
         category: NodeCategory::Indicator,
@@ -27,6 +48,7 @@ pub fn single_series_value_meta(kind: &str, default_period: u32) -> NodeMeta {
                 .with_default(serde_json::json!(default_period))
                 .with_min(1.0),
         ],
+        chart_defaults: Some(chart_defaults),
     }
 }
 

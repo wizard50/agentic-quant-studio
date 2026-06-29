@@ -1,5 +1,6 @@
 import { toLineSeriesData } from "@/lib/chart/mapSeries";
 import { parseSeriesF64, parseSeriesI64 } from "@/lib/studio/api";
+import type { ChartDefaults } from "./catalog";
 import type { IndicatorDefinition, IndicatorParams } from "./types";
 
 export const SMA_KIND = "indicator.sma";
@@ -12,12 +13,13 @@ interface CloseLineIndicatorConfig {
   name: string;
   description?: string;
   defaultPeriod: number;
+  chartDefaults: ChartDefaults;
 }
 
 function defineCloseLineIndicator(
   config: CloseLineIndicatorConfig,
 ): IndicatorDefinition {
-  const { kind, name, description, defaultPeriod } = config;
+  const { kind, name, description, defaultPeriod, chartDefaults } = config;
 
   return {
     kind,
@@ -27,6 +29,7 @@ function defineCloseLineIndicator(
       `${name} ${params.period ?? defaultPeriod}`,
     defaultParams: { period: defaultPeriod },
     configSchema: [{ name: "period", type: "number", label: "Period", min: 1 }],
+    chartDefaults,
     seriesStyle: { lineWidth: 2 },
     contribute: ({ dsNodeId, nodeId, params }) => ({
       nodes: [{ id: nodeId, kind, params }],
@@ -52,6 +55,7 @@ export const smaDefinition = defineCloseLineIndicator({
   name: "SMA",
   description: "Simple moving average",
   defaultPeriod: 20,
+  chartDefaults: { role: "overlay", warmup_bars: 20 },
 });
 
 export const emaDefinition = defineCloseLineIndicator({
@@ -59,6 +63,7 @@ export const emaDefinition = defineCloseLineIndicator({
   name: "EMA",
   description: "Exponential moving average",
   defaultPeriod: 20,
+  chartDefaults: { role: "overlay", warmup_bars: 20 },
 });
 
 export const rsiDefinition = defineCloseLineIndicator({
@@ -66,6 +71,11 @@ export const rsiDefinition = defineCloseLineIndicator({
   name: "RSI",
   description: "Relative strength index",
   defaultPeriod: 14,
+  chartDefaults: {
+    role: "oscillator",
+    value_range: { min: 0, max: 100 },
+    warmup_bars: 14,
+  },
 });
 
 export const INDICATOR_REGISTRY: Record<string, IndicatorDefinition> = {

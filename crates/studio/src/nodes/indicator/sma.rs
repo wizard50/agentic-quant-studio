@@ -9,7 +9,7 @@ use crate::{
     },
 };
 
-use super::common::{execute_period_overlay, single_series_value_meta};
+use super::common::{execute_period_overlay, overlay_chart_defaults, single_series_value_meta};
 
 pub struct SmaOp;
 
@@ -22,7 +22,7 @@ impl SmaOp {
 #[async_trait]
 impl NodeOp for SmaOp {
     fn meta(&self) -> NodeMeta {
-        single_series_value_meta("indicator.sma", 20)
+        single_series_value_meta("indicator.sma", 20, overlay_chart_defaults(20))
     }
 
     async fn execute(

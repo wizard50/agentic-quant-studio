@@ -3,8 +3,11 @@ export type {
   CatalogParam,
   CatalogPort,
   CatalogType,
+  ChartDefaults,
+  ChartRole,
   IndicatorCatalog,
   IndicatorCatalogEntry,
+  ValueRange,
 } from "./catalog";
 export { INDICATOR_COLOR_POOL, pickIndicatorColor } from "./colors";
 export {
@@ -18,7 +21,18 @@ export {
   getIndicatorLabel,
   getIndicatorName,
 } from "./labels";
+export { buildIndicatorDataRange } from "./buildDataRange";
+export type { IndicatorDataRange } from "./buildDataRange";
 export { buildIndicatorRunRequest } from "./buildRunRequest";
+export {
+  buildAutoscaleInfoProvider,
+  buildLineSeriesOptions,
+  filterOscillatorInstances,
+  filterOverlayInstances,
+  isOscillator,
+  isOscillatorInstance,
+  isOverlayInstance,
+} from "./render";
 export type { IndicatorRunParams } from "./buildRunRequest";
 export {
   EMA_KIND,

@@ -21,6 +21,8 @@ describe("buildIndicatorRunRequest", () => {
         },
       ],
       limit: 500,
+      startMs: 1_700_000_000_000,
+      endMs: 1_700_086_400_000,
     });
 
     expect(request).not.toBeNull();
@@ -33,6 +35,8 @@ describe("buildIndicatorRunRequest", () => {
         symbol: "BTCUSDT",
         interval: "1d",
         limit: 500,
+        start_ms: 1_700_000_000_000,
+        end_ms: 1_700_086_400_000,
       },
     });
     expect(request?.graph.nodes[1]).toEqual({

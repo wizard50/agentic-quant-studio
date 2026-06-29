@@ -6,11 +6,21 @@ import {
   type IChartApi,
   type ISeriesApi,
 } from "lightweight-charts";
-import type { LineData, Time } from "lightweight-charts";
+import {
+  alignLineSeriesToCandles,
+  type LineSeriesPoint,
+} from "@/lib/chart/mapSeries";
 import { PAGE_SIZE } from "@/lib/chart";
 import type { CandleDatafeed } from "@/lib/chart/datafeed";
 import type { SeriesKey } from "@/lib/chart";
-import { buildIndicatorRunRequest, INDICATOR_REGISTRY } from "@/lib/indicators";
+import {
+  buildIndicatorDataRange,
+  buildIndicatorRunRequest,
+  buildLineSeriesOptions,
+  filterOverlayInstances,
+  INDICATOR_REGISTRY,
+  isOverlayInstance,
+} from "@/lib/indicators";
 import type { IndicatorInstance } from "@/lib/indicators";
 import { runStudioGraph } from "@/lib/studio/api";
 import { useChartIndicatorsStore } from "@/stores/useChartIndicatorsStore";
@@ -42,12 +52,13 @@ export function useChartIndicators({
   marketKey,
   chartReady,
 }: UseChartIndicatorsParams): void {
-  const instances = useChartIndicatorsStore((state) => state.instances);
+  const allInstances = useChartIndicatorsStore((state) => state.instances);
+  const instances = filterOverlayInstances(allInstances);
   const setRuntime = useChartIndicatorsStore((state) => state.setRuntime);
   const clearRuntime = useChartIndicatorsStore((state) => state.clearRuntime);
 
   const seriesByIdRef = useRef(new Map<string, ISeriesApi<"Line">>());
-  const dataCacheRef = useRef(new Map<string, LineData<Time>[]>());
+  const dataCacheRef = useRef(new Map<string, LineSeriesPoint[]>());
   const fetchGenerationRef = useRef(0);
 
   const setInstanceRuntime = useCallback(
@@ -79,18 +90,16 @@ export function useChartIndicators({
       }
 
       const definition = INDICATOR_REGISTRY[instance.kind];
-      if (!definition) {
+      if (!definition || !isOverlayInstance(instance)) {
         return null;
       }
 
       let series = seriesByIdRef.current.get(instance.id);
       if (!series) {
-        series = chart.addSeries(LineSeries, {
-          color: instance.color,
-          lineWidth: definition.seriesStyle.lineWidth,
-          title: definition.label(instance.params),
-          visible: instance.visible,
-        });
+        series = chart.addSeries(
+          LineSeries,
+          buildLineSeriesOptions(instance, definition),
+        );
         seriesByIdRef.current.set(instance.id, series);
       }
 
@@ -114,11 +123,7 @@ export function useChartIndicators({
         return;
       }
 
-      series.applyOptions({
-        color: instance.color,
-        visible: instance.visible,
-        title: definition.label(instance.params),
-      });
+      series.applyOptions(buildLineSeriesOptions(instance, definition));
     },
     [ensureSeries],
   );
@@ -139,11 +144,7 @@ export function useChartIndicators({
       }
 
       series.setData(cachedData);
-      series.applyOptions({
-        color: instance.color,
-        visible: instance.visible,
-        title: definition.label(instance.params),
-      });
+      series.applyOptions(buildLineSeriesOptions(instance, definition));
     },
     [ensureSeries],
   );
@@ -160,10 +161,11 @@ export function useChartIndicators({
     async (
       currentInstances: IndicatorInstance[],
       currentMarketKey: SeriesKey,
-      limit?: number,
     ) => {
       const chart = chartRef.current;
-      const visibleInstances = currentInstances.filter(
+      const datafeed = datafeedRef.current;
+      const overlayInstances = filterOverlayInstances(currentInstances);
+      const visibleInstances = overlayInstances.filter(
         (instance) => instance.visible,
       );
 
@@ -171,10 +173,13 @@ export function useChartIndicators({
         return;
       }
 
+      const dataRange = buildIndicatorDataRange(datafeed, visibleInstances);
       const request = buildIndicatorRunRequest({
         settings: currentMarketKey,
-        instances: currentInstances,
-        limit,
+        instances: overlayInstances,
+        limit: dataRange?.limit ?? PAGE_SIZE,
+        startMs: dataRange?.startMs,
+        endMs: dataRange?.endMs,
       });
 
       if (!request) {
@@ -200,10 +205,10 @@ export function useChartIndicators({
             continue;
           }
 
-          const lineData = definition.parseLineData(
-            response,
-            instance.id,
-            "ds1",
+          const parsed = definition.parseLineData(response, instance.id, "ds1");
+          const lineData = alignLineSeriesToCandles(
+            datafeed.getCandles(),
+            parsed,
           );
           const cacheKey = buildCacheKey(currentMarketKey, instance);
           dataCacheRef.current.set(cacheKey, lineData);
@@ -215,11 +220,11 @@ export function useChartIndicators({
               .instances.find((item) => item.id === instance.id);
 
             series.setData(lineData);
-            series.applyOptions({
-              color: latest?.color ?? instance.color,
-              visible: latest?.visible ?? true,
-              title: definition.label(latest?.params ?? instance.params),
-            });
+            if (latest) {
+              series.applyOptions(buildLineSeriesOptions(latest, definition));
+            } else {
+              series.applyOptions(buildLineSeriesOptions(instance, definition));
+            }
           }
 
           setInstanceRuntime(instance.id, false, null);
@@ -237,14 +242,22 @@ export function useChartIndicators({
         }
       }
     },
-    [chartReady, chartRef, ensureSeries, setInstanceRuntime],
+    [chartReady, chartRef, datafeedRef, ensureSeries, setInstanceRuntime],
   );
 
   useEffect(() => {
-    const currentIds = new Set(instances.map((instance) => instance.id));
+    const currentIds = new Set(allInstances.map((instance) => instance.id));
 
     for (const instanceId of seriesByIdRef.current.keys()) {
       if (!currentIds.has(instanceId)) {
+        removeSeries(instanceId);
+        clearCacheForInstance(instanceId);
+      }
+    }
+
+    for (const instanceId of seriesByIdRef.current.keys()) {
+      const instance = allInstances.find((item) => item.id === instanceId);
+      if (instance && !isOverlayInstance(instance)) {
         removeSeries(instanceId);
         clearCacheForInstance(instanceId);
       }
@@ -263,8 +276,6 @@ export function useChartIndicators({
       return;
     }
 
-    const candleCount = datafeedRef.current?.getCandleCount() ?? 0;
-    const limit = candleCount > 0 ? candleCount : PAGE_SIZE;
     const needsFetch = visibleInstances.some((instance) => {
       const cacheKey = buildCacheKey(marketKey, instance);
       return !dataCacheRef.current.has(cacheKey);
@@ -276,7 +287,7 @@ export function useChartIndicators({
           clearCacheForInstance(instance.id);
         }
       }
-      void fetchAndApply(instances, marketKey, limit);
+      void fetchAndApply(instances, marketKey);
       return;
     }
 
@@ -289,6 +300,7 @@ export function useChartIndicators({
     clearCacheForInstance,
     datafeedRef,
     fetchAndApply,
+    allInstances,
     instances,
     marketKey,
     removeSeries,
@@ -324,12 +336,7 @@ export function useChartIndicators({
         return;
       }
 
-      const limit =
-        event.type === "replace"
-          ? event.candles.length
-          : datafeed.getCandleCount();
-
-      void fetchAndApply(instances, marketKey, limit > 0 ? limit : PAGE_SIZE);
+      void fetchAndApply(instances, marketKey);
     });
   }, [clearRuntime, datafeedRef, fetchAndApply, instances, marketKey]);
 

@@ -3,6 +3,7 @@ use serde::Serialize;
 use crate::{
     registry::NodeRegistry,
     runtime::{
+        display::ChartDefaults,
         node::{NodeMeta, Param, ParamKind},
         value::ValueKind,
     },
@@ -19,6 +20,8 @@ pub struct IndicatorEntry {
     pub inputs: Vec<CatalogPort>,
     pub outputs: Vec<CatalogPort>,
     pub params: Vec<CatalogParam>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub chart_defaults: Option<ChartDefaults>,
 }
 
 /// A wired port on the graph. `type` is the element type; `series` marks a time series.
@@ -72,6 +75,7 @@ impl IndicatorEntry {
             inputs: meta.inputs.iter().map(CatalogPort::from_port).collect(),
             outputs: meta.outputs.iter().map(CatalogPort::from_port).collect(),
             params: meta.params.iter().map(CatalogParam::from_param).collect(),
+            chart_defaults: meta.chart_defaults,
         }
     }
 }
@@ -169,5 +173,19 @@ mod tests {
         assert_period_line_indicator(indicator_entry(&json, "indicator.ema"), 20);
         assert_period_line_indicator(indicator_entry(&json, "indicator.sma"), 20);
         assert_period_line_indicator(indicator_entry(&json, "indicator.rsi"), 14);
+
+        let ema = indicator_entry(&json, "indicator.ema");
+        assert_eq!(ema["chart_defaults"]["role"], "overlay");
+        assert!(ema["chart_defaults"]["value_range"].is_null());
+        assert_eq!(ema["chart_defaults"]["warmup_bars"], 20);
+
+        let sma = indicator_entry(&json, "indicator.sma");
+        assert_eq!(sma["chart_defaults"]["role"], "overlay");
+
+        let rsi = indicator_entry(&json, "indicator.rsi");
+        assert_eq!(rsi["chart_defaults"]["role"], "oscillator");
+        assert_eq!(rsi["chart_defaults"]["value_range"]["min"], 0.0);
+        assert_eq!(rsi["chart_defaults"]["value_range"]["max"], 100.0);
+        assert_eq!(rsi["chart_defaults"]["warmup_bars"], 14);
     }
 }

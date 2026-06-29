@@ -35,5 +35,7 @@ mod tests {
 
         let rsi = indicator_entry(&json, "indicator.rsi");
         assert_eq!(rsi["params"][0]["default"], 14);
+        assert_eq!(rsi["chart_defaults"]["role"], "oscillator");
+        assert_eq!(rsi["chart_defaults"]["value_range"]["max"], 100.0);
     }
 }

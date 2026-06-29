@@ -1,5 +1,6 @@
 use crate::error::{Error, Result};
 use crate::runtime::context::ExecutionContext;
+use crate::runtime::display::ChartDefaults;
 use crate::runtime::value::{SeriesF64, SeriesI64, Value, ValueKind};
 use async_trait::async_trait;
 use std::{collections::HashMap, sync::Arc};
@@ -11,6 +12,7 @@ pub struct NodeMeta {
     pub inputs: Vec<Port>,
     pub outputs: Vec<Port>,
     pub params: Vec<Param>,
+    pub chart_defaults: Option<ChartDefaults>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

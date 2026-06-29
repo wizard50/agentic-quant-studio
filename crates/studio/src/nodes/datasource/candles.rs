@@ -69,6 +69,7 @@ impl NodeOp for CandlesOp {
                 Param::new("symbol", ParamKind::String),
                 Param::new("interval", ParamKind::String),
             ],
+            chart_defaults: None,
         }
     }
 
