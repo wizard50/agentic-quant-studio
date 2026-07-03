@@ -1,5 +1,3 @@
-import type { SeriesKey } from "@/lib/chart";
-
 export interface GraphSpec {
   id: string;
   version: number;
@@ -38,9 +36,4 @@ export interface StudioRunMeta {
 export interface StudioRunResponse {
   outputs: Record<string, StudioSeriesValue>;
   meta: StudioRunMeta;
-}
-
-export interface SmaRunParams {
-  settings: SeriesKey;
-  period: number;
 }

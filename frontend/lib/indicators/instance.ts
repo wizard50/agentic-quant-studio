@@ -1,6 +1,13 @@
+import type { IndicatorChartLayer } from "@/lib/chart-block";
 import type { IndicatorCatalogEntry } from "./catalog";
-import type { IndicatorInstance, IndicatorParams } from "./types";
-import { INDICATOR_REGISTRY } from "./registry";
+import type { IndicatorDefinition, IndicatorParams } from "./types";
+import { lookupIndicatorDefinition } from "./registry";
+
+export function getIndicatorDefinition(
+  layer: IndicatorChartLayer,
+): IndicatorDefinition | undefined {
+  return lookupIndicatorDefinition(layer.indicatorKind);
+}
 
 let instanceIdCounter = 0;
 
@@ -10,17 +17,13 @@ export function createInstanceId(kind: string): string {
   return `${kind.replace(/\./g, "-")}-${Date.now()}-${instanceIdCounter}`;
 }
 
-export function getInstanceLabel(instance: IndicatorInstance): string {
-  const definition = INDICATOR_REGISTRY[instance.kind];
-  if (definition) {
-    return definition.label(instance.params);
-  }
-
-  return instance.kind;
+export function getIndicatorLayerLabel(layer: IndicatorChartLayer): string {
+  const definition = getIndicatorDefinition(layer);
+  return definition ? definition.label(layer.params) : layer.indicatorKind;
 }
 
-export function getInstanceColor(instance: IndicatorInstance): string {
-  return instance.color;
+export function getIndicatorLayerColor(layer: IndicatorChartLayer): string {
+  return layer.color;
 }
 
 export function defaultParamsFromCatalog(

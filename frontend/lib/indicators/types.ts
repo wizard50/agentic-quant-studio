@@ -4,14 +4,6 @@ import type { StudioRunResponse } from "@/lib/studio/types";
 
 export type IndicatorParams = Record<string, string | number>;
 
-export interface IndicatorInstance {
-  id: string;
-  kind: string;
-  params: IndicatorParams;
-  visible: boolean;
-  color: string;
-}
-
 export interface ParamField {
   name: string;
   type: "number" | "string";
@@ -49,9 +41,4 @@ export interface IndicatorDefinition {
     nodeId: string,
     dsNodeId: string,
   ) => LineSeriesPoint[];
-}
-
-export interface IndicatorRuntime {
-  loading: boolean;
-  error: string | null;
 }

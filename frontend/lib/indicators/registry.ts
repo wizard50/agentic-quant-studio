@@ -1,85 +1,40 @@
-import { toLineSeriesData } from "@/lib/chart/mapSeries";
-import { parseSeriesF64, parseSeriesI64 } from "@/lib/studio/api";
-import type { ChartDefaults } from "./catalog";
-import type { IndicatorDefinition, IndicatorParams } from "./types";
+import { volumeDefinition, VOLUME_KIND } from "./builtins";
+import { definitionFromCatalogEntry } from "./buildFromCatalog";
+import type { IndicatorCatalog } from "./catalog";
+import type { IndicatorDefinition } from "./types";
 
-export const SMA_KIND = "indicator.sma";
-export const EMA_KIND = "indicator.ema";
-export const RSI_KIND = "indicator.rsi";
-export const TEMP_SMA_INSTANCE_ID = "sma-20";
+const BUILTIN_DEFINITIONS: Record<string, IndicatorDefinition> = {
+  [VOLUME_KIND]: volumeDefinition,
+};
 
-interface CloseLineIndicatorConfig {
-  kind: string;
-  name: string;
-  description?: string;
-  defaultPeriod: number;
-  chartDefaults: ChartDefaults;
-}
+let registry: Record<string, IndicatorDefinition> = { ...BUILTIN_DEFINITIONS };
 
-function defineCloseLineIndicator(
-  config: CloseLineIndicatorConfig,
-): IndicatorDefinition {
-  const { kind, name, description, defaultPeriod, chartDefaults } = config;
+export function hydrateIndicatorRegistry(catalog: IndicatorCatalog): void {
+  const catalogDefinitions = Object.fromEntries(
+    catalog.indicators.map((entry) => [
+      entry.kind,
+      definitionFromCatalogEntry(entry),
+    ]),
+  );
 
-  return {
-    kind,
-    name,
-    description,
-    label: (params: IndicatorParams) =>
-      `${name} ${params.period ?? defaultPeriod}`,
-    defaultParams: { period: defaultPeriod },
-    configSchema: [{ name: "period", type: "number", label: "Period", min: 1 }],
-    chartDefaults,
-    seriesStyle: { lineWidth: 2 },
-    contribute: ({ dsNodeId, nodeId, params }) => ({
-      nodes: [{ id: nodeId, kind, params }],
-      edges: [{ from: `${dsNodeId}.close`, to: `${nodeId}.input` }],
-      outputPorts: [`${nodeId}.value`],
-    }),
-    parseLineData: (response, nodeId, dsNodeId) => {
-      const timestamps = parseSeriesI64(
-        response.outputs[`${dsNodeId}.timestamp`],
-        `${dsNodeId}.timestamp`,
-      );
-      const values = parseSeriesF64(
-        response.outputs[`${nodeId}.value`],
-        `${nodeId}.value`,
-      );
-      return toLineSeriesData(timestamps, values);
-    },
+  registry = {
+    ...catalogDefinitions,
+    ...BUILTIN_DEFINITIONS,
   };
 }
 
-export const smaDefinition = defineCloseLineIndicator({
-  kind: SMA_KIND,
-  name: "SMA",
-  description: "Simple moving average",
-  defaultPeriod: 20,
-  chartDefaults: { role: "overlay", warmup_bars: 20 },
-});
+export function resetIndicatorRegistry(): void {
+  registry = { ...BUILTIN_DEFINITIONS };
+}
 
-export const emaDefinition = defineCloseLineIndicator({
-  kind: EMA_KIND,
-  name: "EMA",
-  description: "Exponential moving average",
-  defaultPeriod: 20,
-  chartDefaults: { role: "overlay", warmup_bars: 20 },
-});
+export function lookupIndicatorDefinition(
+  kind: string,
+): IndicatorDefinition | undefined {
+  return registry[kind];
+}
 
-export const rsiDefinition = defineCloseLineIndicator({
-  kind: RSI_KIND,
-  name: "RSI",
-  description: "Relative strength index",
-  defaultPeriod: 14,
-  chartDefaults: {
-    role: "oscillator",
-    value_range: { min: 0, max: 100 },
-    warmup_bars: 14,
-  },
-});
-
-export const INDICATOR_REGISTRY: Record<string, IndicatorDefinition> = {
-  [SMA_KIND]: smaDefinition,
-  [EMA_KIND]: emaDefinition,
-  [RSI_KIND]: rsiDefinition,
-};
+export function getIndicatorRegistry(): Readonly<
+  Record<string, IndicatorDefinition>
+> {
+  return registry;
+}

@@ -1,6 +1,11 @@
 import type { Time } from "lightweight-charts";
 import { describe, expect, it } from "vitest";
-import { alignLineSeriesToCandles, toLineSeriesData } from "./mapSeries";
+import {
+  alignLineSeriesToCandles,
+  extractValuedLinePoints,
+  lineDataHasValues,
+  toLineSeriesData,
+} from "./mapSeries";
 import type { Candle } from "@/lib/types";
 
 const candles: Candle[] = [
@@ -54,6 +59,16 @@ describe("toLineSeriesData", () => {
       { time: 1_700_043_200, value: 50 },
       { time: 1_700_086_400, value: 110 },
     ]);
+  });
+});
+
+describe("line data helpers", () => {
+  it("detects valued points and strips whitespace", () => {
+    const points = [{ time: 1 as Time }, { time: 2 as Time, value: 42 }];
+
+    expect(lineDataHasValues(points)).toBe(true);
+    expect(extractValuedLinePoints(points)).toEqual([{ time: 2, value: 42 }]);
+    expect(lineDataHasValues([{ time: 1 as Time }])).toBe(false);
   });
 });
 

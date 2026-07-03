@@ -4,6 +4,22 @@ import { toChartTime } from "./mapCandles";
 
 export type LineSeriesPoint = LineData<Time> | WhitespaceData<Time>;
 
+export function lineDataHasValues(data: LineSeriesPoint[]): boolean {
+  return data.some(
+    (point) =>
+      "value" in point && point.value != null && !Number.isNaN(point.value),
+  );
+}
+
+export function extractValuedLinePoints(
+  data: LineSeriesPoint[],
+): LineData<Time>[] {
+  return data.filter(
+    (point): point is LineData<Time> =>
+      "value" in point && point.value != null && !Number.isNaN(point.value),
+  );
+}
+
 export function toLineSeriesData(
   timestamps: (number | null)[],
   values: (number | null)[],

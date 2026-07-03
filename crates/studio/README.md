@@ -66,9 +66,71 @@ let store = execute(&graph, &registry, &ctx).await?;
 
 The backend `POST /api/v1/studio/runs` endpoint wraps a `GraphSpec` with an `outputs` list of port strings (`node_id.port_name`) and returns only the requested ports plus run `meta`.
 
+UI metadata (node positions, labels, editor groups) will live in a separate **`GraphExtSpec`** later — not mixed into `GraphSpec`.
+
+### HTTP example
+
+```bash
+curl -s -X POST http://127.0.0.1:3000/api/v1/studio/runs \
+  -H "Content-Type: application/json" \
+  -d '{
+    "graph": {
+      "id": "ds-sma",
+      "version": 1,
+      "kind": "chart",
+      "nodes": [
+        {
+          "id": "ds1",
+          "kind": "datasource.candles",
+          "params": {
+            "exchange": "bybit",
+            "category": "spot",
+            "symbol": "BTCUSDT",
+            "interval": "1d"
+          }
+        },
+        { "id": "sma20", "kind": "indicator.sma", "params": { "period": 20 } }
+      ],
+      "edges": [{ "from": "ds1.close", "to": "sma20.input" }]
+    },
+    "outputs": ["ds1.timestamp", "ds1.close", "sma20.value"]
+  }' | jq '.outputs["sma20.value"]'
+```
+
 ## Indicator catalog
 
-`IndicatorCatalog` is built from `NodeRegistry::indicator_metas()` and serializes each indicator kind with its input/output ports and scalar params (type, default, min, max). The backend exposes it at `GET /api/v1/catalog/indicators`; the Market Research UI uses it to populate the indicator browser.
+`IndicatorCatalog` is built from `NodeRegistry::indicator_metas()` and serializes each indicator kind with its input/output ports, scalar params (type, default, min, max), and optional chart metadata. The backend exposes it at `GET /api/v1/catalog/indicators`; the Market Research UI uses it to populate the indicator browser and to hydrate the frontend indicator registry at runtime.
+
+### ChartDefaults
+
+Indicator nodes may attach `chart_defaults` on `NodeMeta` to describe how the frontend should place and scale a series:
+
+| Field | Description |
+|-------|-------------|
+| `role` | `overlay` (main price pane) or `subchart` (separate pane below) |
+| `value_range` | Optional fixed Y range (`min`, `max`) for subcharts such as RSI |
+| `warmup_bars` | Optional history prefetch hint for viewport loads |
+
+Helpers in `nodes/indicator/common.rs`:
+
+- `overlay_chart_defaults(warmup_bars)` — SMA/EMA-style overlays
+- `subchart_chart_defaults(warmup_bars, min, max)` — bounded subcharts such as RSI
+
+Example catalog entry shape:
+
+```json
+{
+  "kind": "indicator.rsi",
+  "inputs": [{ "name": "input", "type": "number", "series": true }],
+  "outputs": [{ "name": "value", "type": "number", "series": true }],
+  "params": [{ "name": "period", "type": "integer", "default": 14, "min": 1 }],
+  "chart_defaults": {
+    "role": "subchart",
+    "value_range": { "min": 0.0, "max": 100.0 },
+    "warmup_bars": 14
+  }
+}
+```
 
 ## Built-in nodes
 
@@ -118,6 +180,7 @@ src/
   error.rs       # graph/runtime errors
   registry.rs    # NodeRegistry, builtin_registry()
   runtime/
+    display.rs   # ChartRole, ChartDefaults (overlay / subchart metadata)
     context.rs   # ExecutionContext, CandleSource
     candles.rs   # CandleQuery, candles_to_series
     validate.rs  # graph validation

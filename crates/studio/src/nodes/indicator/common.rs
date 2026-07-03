@@ -19,9 +19,9 @@ pub fn overlay_chart_defaults(warmup_bars: u32) -> ChartDefaults {
     }
 }
 
-pub fn oscillator_chart_defaults(warmup_bars: u32, min: f64, max: f64) -> ChartDefaults {
+pub fn subchart_chart_defaults(warmup_bars: u32, min: f64, max: f64) -> ChartDefaults {
     ChartDefaults {
-        role: ChartRole::Oscillator,
+        role: ChartRole::Subchart,
         value_range: Some(ValueRange { min, max }),
         warmup_bars: Some(warmup_bars),
     }

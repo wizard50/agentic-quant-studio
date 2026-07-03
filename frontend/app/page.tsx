@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
-import { CandleChartPanel } from "@/components/chart/CandleChartPanel";
+import { ChartBlock } from "@/components/chart/ChartBlock";
 import { NoDatasetsMessage } from "@/components/chart/NoDatasetsMessage";
 import { useTradingStore } from "@/stores/useTradingStore";
 import { getMarketSymbols, useDatasets } from "@/hooks/useCatalog";
@@ -168,7 +168,7 @@ export default function QuantResearchDashboard() {
       ) : catalogSymbols.length === 0 ? (
         <NoDatasetsMessage />
       ) : (
-        <CandleChartPanel
+        <ChartBlock
           exchange={exchange}
           category={category}
           symbol={activeSymbol}

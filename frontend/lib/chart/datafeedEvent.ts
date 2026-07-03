@@ -1,27 +1,21 @@
 import type { IChartApi } from "lightweight-charts";
+import type { Candle } from "@/lib/types";
+import { getCandlesSeries } from "./createBlockChart";
 import { toCandleBars, toVolumeBars } from "./mapCandles";
 import { preserveViewportOnPrepend } from "./preserveViewport";
-import type { ChartSeries, DatafeedEvent } from "./types";
+import type { BlockChartSeries, DatafeedEvent } from "./types";
 
-export interface DatafeedEventContext {
+export interface BlockChartDatafeedEventContext {
   chart: IChartApi | null;
-  series: ChartSeries | null;
+  series: BlockChartSeries | null;
 }
 
-export interface DatafeedEventHandlers {
-  onLoading: () => void;
-}
-
-export function handleDatafeedEvent(
+export function handleBlockChartDatafeedEvent(
   event: DatafeedEvent,
-  ctx: DatafeedEventContext,
-  handlers: DatafeedEventHandlers,
+  ctx: BlockChartDatafeedEventContext,
 ): void {
   switch (event.type) {
     case "loading":
-      handlers.onLoading();
-      return;
-
     case "paging":
     case "pageError":
     case "rangeBoundary":
@@ -29,7 +23,7 @@ export function handleDatafeedEvent(
 
     case "reset":
       if (ctx.series) {
-        syncSeriesFromEvent(ctx.series, event);
+        syncBlockChartFromEvent(ctx.series, event);
       }
       return;
 
@@ -38,7 +32,7 @@ export function handleDatafeedEvent(
         return;
       }
 
-      syncSeriesFromEvent(ctx.series, event);
+      syncBlockChartFromEvent(ctx.series, event);
       ctx.chart?.timeScale().fitContent();
       return;
 
@@ -49,7 +43,7 @@ export function handleDatafeedEvent(
 
       const rangeBeforeUpdate =
         ctx.chart?.timeScale().getVisibleLogicalRange() ?? null;
-      syncSeriesFromEvent(ctx.series, event);
+      syncBlockChartFromEvent(ctx.series, event);
 
       if (ctx.chart) {
         preserveViewportOnPrepend(
@@ -63,20 +57,48 @@ export function handleDatafeedEvent(
   }
 }
 
-export function syncSeriesFromEvent(
-  series: ChartSeries,
+function syncHistogramLayersFromCandles(
+  series: BlockChartSeries,
+  candles: Candle[],
+): void {
+  const volumeBars = toVolumeBars(candles);
+
+  for (const layerId of series.histogramLayerIds) {
+    const histogram = series.byLayerId.get(layerId);
+    if (histogram?.seriesType() === "Histogram") {
+      histogram.setData(volumeBars);
+    }
+  }
+}
+
+export function hydrateBlockChart(
+  series: BlockChartSeries | null,
+  candles: Candle[],
+): void {
+  if (!series || candles.length === 0) {
+    return;
+  }
+
+  getCandlesSeries(series)?.setData(toCandleBars(candles));
+  syncHistogramLayersFromCandles(series, candles);
+}
+
+export function syncBlockChartFromEvent(
+  series: BlockChartSeries,
   event: DatafeedEvent,
 ): void {
   switch (event.type) {
     case "reset":
-      series.candles.setData([]);
-      series.volume.setData([]);
+      getCandlesSeries(series)?.setData([]);
+      for (const layerId of series.histogramLayerIds) {
+        series.byLayerId.get(layerId)?.setData([]);
+      }
       return;
 
     case "replace":
     case "prepend":
-      series.candles.setData(toCandleBars(event.candles));
-      series.volume.setData(toVolumeBars(event.candles));
+      getCandlesSeries(series)?.setData(toCandleBars(event.candles));
+      syncHistogramLayersFromCandles(series, event.candles);
       return;
   }
 }

@@ -2,33 +2,64 @@ import type {
   AutoscaleInfo,
   LineSeriesPartialOptions,
 } from "lightweight-charts";
+import type { IndicatorChartLayer } from "@/lib/chart-block";
 import type { ChartDefaults } from "./catalog";
-import { INDICATOR_REGISTRY } from "./registry";
-import type { IndicatorDefinition, IndicatorInstance } from "./types";
+import { getIndicatorDefinition, getIndicatorLayerLabel } from "./instance";
+import type { IndicatorDefinition } from "./types";
 
-export function isOscillator(definition: IndicatorDefinition): boolean {
-  return definition.chartDefaults?.role === "oscillator";
+export function isOverlay(definition: IndicatorDefinition): boolean {
+  return definition.chartDefaults?.role === "overlay";
 }
 
-export function isOscillatorInstance(instance: IndicatorInstance): boolean {
-  const definition = INDICATOR_REGISTRY[instance.kind];
-  return definition ? isOscillator(definition) : false;
+export function isSubchart(definition: IndicatorDefinition): boolean {
+  return definition.chartDefaults?.role === "subchart";
 }
 
-export function isOverlayInstance(instance: IndicatorInstance): boolean {
-  return !isOscillatorInstance(instance);
+export function seriesTypeForDefinition(
+  definition: IndicatorDefinition,
+): NonNullable<ChartDefaults["series_type"]> {
+  return definition.chartDefaults.series_type ?? "line";
 }
 
-export function filterOverlayInstances(
-  instances: IndicatorInstance[],
-): IndicatorInstance[] {
-  return instances.filter(isOverlayInstance);
+function matchesIndicatorLayer(
+  layer: IndicatorChartLayer,
+  predicate: (definition: IndicatorDefinition) => boolean,
+): boolean {
+  const definition = getIndicatorDefinition(layer);
+  return definition ? predicate(definition) : false;
 }
 
-export function filterOscillatorInstances(
-  instances: IndicatorInstance[],
-): IndicatorInstance[] {
-  return instances.filter(isOscillatorInstance);
+export function isLineIndicatorLayer(layer: IndicatorChartLayer): boolean {
+  return matchesIndicatorLayer(
+    layer,
+    (definition) => seriesTypeForDefinition(definition) === "line",
+  );
+}
+
+export function isOverlayIndicatorLayer(layer: IndicatorChartLayer): boolean {
+  return matchesIndicatorLayer(layer, isOverlay);
+}
+
+export function isSubchartIndicatorLayer(layer: IndicatorChartLayer): boolean {
+  return matchesIndicatorLayer(layer, isSubchart);
+}
+
+export function filterLineIndicatorLayers(
+  layers: IndicatorChartLayer[],
+): IndicatorChartLayer[] {
+  return layers.filter(isLineIndicatorLayer);
+}
+
+export function filterOverlayIndicatorLayers(
+  layers: IndicatorChartLayer[],
+): IndicatorChartLayer[] {
+  return layers.filter(isOverlayIndicatorLayer);
+}
+
+export function filterSubchartIndicatorLayers(
+  layers: IndicatorChartLayer[],
+): IndicatorChartLayer[] {
+  return layers.filter(isSubchartIndicatorLayer);
 }
 
 export function buildAutoscaleInfoProvider(
@@ -48,17 +79,19 @@ export function buildAutoscaleInfoProvider(
 }
 
 export function buildLineSeriesOptions(
-  instance: IndicatorInstance,
+  layer: IndicatorChartLayer,
   definition: IndicatorDefinition,
+  visible: boolean = layer.visible,
 ): LineSeriesPartialOptions {
   const options: LineSeriesPartialOptions = {
-    color: instance.color,
+    color: layer.color,
     lineWidth: definition.seriesStyle.lineWidth,
-    title: definition.label(instance.params),
-    visible: instance.visible,
+    title: getIndicatorLayerLabel(layer),
+    visible,
+    crosshairMarkerVisible: false,
   };
 
-  if (isOscillator(definition)) {
+  if (definition.chartDefaults.value_range) {
     options.priceFormat = {
       type: "price",
       precision: 2,

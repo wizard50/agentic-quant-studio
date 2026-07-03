@@ -1,29 +1,43 @@
+import {
+  buildStudioRunRequest,
+  deriveOutputs,
+  studioResponseToCandles,
+  type ChartBlockSpec,
+} from "@/lib/chart-block";
+import { runStudioGraph } from "@/lib/studio/api";
+import type { StudioRunResponse } from "@/lib/studio/types";
 import type { Candle } from "@/lib/types";
-import { fetchCandles } from "./api";
 import { CandleCache } from "./cache";
-import type { DatafeedListener, FetchCandlesFn, SeriesKey } from "./types";
+import { PAGE_SIZE } from "./constants";
+import type { DatafeedListener, MarketDataKey } from "./types";
+import { estimateBarDurationMs } from "./viewportMath";
 
-export const PAGE_SIZE = 500;
-
-export class CandleDatafeed {
+export class Datafeed {
   private readonly cache = new CandleCache();
   private readonly listeners = new Set<DatafeedListener>();
-  private readonly fetchCandles: FetchCandlesFn;
 
-  private key: SeriesKey | null = null;
+  private spec: ChartBlockSpec | null = null;
+  private warmupBars = 0;
+  private marketDataKey: MarketDataKey | null = null;
   private generation = 0;
   private isLoadingOlder = false;
   private hasMoreHistory = true;
-
-  constructor(fetchFn: FetchCandlesFn = fetchCandles) {
-    this.fetchCandles = fetchFn;
-  }
+  private lastResponse: StudioRunResponse | null = null;
 
   subscribe(listener: DatafeedListener): () => void {
     this.listeners.add(listener);
     return () => {
       this.listeners.delete(listener);
     };
+  }
+
+  configure(spec: ChartBlockSpec, warmupBars: number): void {
+    this.spec = spec;
+    this.warmupBars = warmupBars;
+  }
+
+  getLastResponse(): StudioRunResponse | null {
+    return this.lastResponse;
   }
 
   getCandleCount(): number {
@@ -50,99 +64,139 @@ export class CandleDatafeed {
     return this.isLoadingOlder;
   }
 
-  reset(key: SeriesKey): void {
+  reset(marketDataKey: MarketDataKey): void {
     this.generation += 1;
-    this.key = key;
+    this.marketDataKey = marketDataKey;
     this.isLoadingOlder = false;
     this.hasMoreHistory = true;
+    this.lastResponse = null;
     this.cache.clear();
     this.emit({ type: "paging", direction: "older", loading: false });
     this.emit({ type: "reset" });
   }
 
   async loadInitial(limit: number = PAGE_SIZE): Promise<void> {
-    if (!this.key) {
-      throw new Error(
-        "CandleDatafeed.reset() must be called before loadInitial()",
-      );
-    }
+    this.assertReady();
 
     const generation = this.generation;
-    const key = this.key;
-
     this.emit({ type: "loading" });
 
-    const candles = await this.fetchCandles(key, { limit });
+    const response = await runStudioGraph(
+      buildStudioRunRequest(this.spec!, {
+        limit: limit + this.warmupBars,
+      }),
+    );
 
     if (!this.isCurrentRequest(generation)) {
       return;
     }
 
-    this.cache.set(candles);
+    this.applyResponse(response);
 
-    if (candles.length < limit) {
+    if (this.cache.getCount() < limit) {
       this.hasMoreHistory = false;
-    }
-
-    this.emit({ type: "replace", candles: this.cache.getAll() });
-
-    if (!this.hasMoreHistory) {
       this.emit({ type: "rangeBoundary", edge: "start" });
     }
   }
 
-  async loadOlder(pageSize: number = PAGE_SIZE): Promise<void> {
-    if (!this.key || !this.hasMoreHistory || this.isLoadingOlder) {
-      return;
-    }
+  async refresh(): Promise<void> {
+    this.assertReady();
 
     if (!this.cache.hasData()) {
-      return;
-    }
-
-    const oldest = this.cache.getOldestTimestamp();
-    if (oldest == null) {
+      await this.loadInitial();
       return;
     }
 
     const generation = this.generation;
-    const key = this.key;
-    const countBefore = this.cache.getCount();
+    const oldest = this.cache.getOldestTimestamp();
+    const newest = this.cache.getNewestTimestamp();
+    const count = this.cache.getCount();
+
+    if (oldest == null || newest == null) {
+      return;
+    }
+
+    const barDurationMs = estimateBarDurationMs(oldest, newest, count);
+
+    const response = await runStudioGraph(
+      buildStudioRunRequest(this.spec!, {
+        startMs: oldest - this.warmupBars * barDurationMs,
+        endMs: newest,
+        limit: count + this.warmupBars,
+      }),
+    );
+
+    if (!this.isCurrentRequest(generation)) {
+      return;
+    }
+
+    this.applyResponse(response, "replace");
+  }
+
+  async loadOlder(pageSize: number = PAGE_SIZE): Promise<void> {
+    this.assertReady();
+
+    if (!this.hasMoreHistory || this.isLoadingOlder || !this.cache.hasData()) {
+      return;
+    }
+
+    const oldest = this.cache.getOldestTimestamp();
+    const newest = this.cache.getNewestTimestamp();
+    const count = this.cache.getCount();
+
+    if (oldest == null || newest == null) {
+      return;
+    }
+
+    const generation = this.generation;
+    const countBefore = count;
+    const previousOldest = oldest;
+    const barDurationMs = estimateBarDurationMs(oldest, newest, count);
 
     this.isLoadingOlder = true;
     this.emit({ type: "paging", direction: "older", loading: true });
 
     try {
-      const candles = await this.fetchCandles(key, {
-        end: new Date(oldest - 1),
-        limit: pageSize,
-      });
+      const response = await runStudioGraph(
+        buildStudioRunRequest(this.spec!, {
+          startMs:
+            oldest - pageSize * barDurationMs - this.warmupBars * barDurationMs,
+          endMs: newest,
+          limit: count + pageSize + this.warmupBars,
+        }),
+      );
 
       if (!this.isCurrentRequest(generation)) {
         return;
       }
 
-      if (candles.length === 0) {
+      const candles = this.parseCandles(response);
+      const newOldest = candles[0]?.timestamp ?? null;
+
+      if (
+        candles.length <= countBefore ||
+        newOldest == null ||
+        newOldest >= previousOldest
+      ) {
         this.hasMoreHistory = false;
         this.emit({ type: "rangeBoundary", edge: "start" });
         return;
       }
 
-      this.cache.merge(candles);
-      const barsAdded = this.cache.getCount() - countBefore;
+      this.cache.set(candles);
+      this.lastResponse = response;
 
-      if (candles.length < pageSize || barsAdded === 0) {
+      if (candles.length < countBefore + pageSize) {
         this.hasMoreHistory = false;
         this.emit({ type: "rangeBoundary", edge: "start" });
       }
 
-      if (barsAdded > 0) {
-        this.emit({
-          type: "prepend",
-          candles: this.cache.getAll(),
-          barsAdded,
-        });
-      }
+      const barsAdded = candles.length - countBefore;
+      this.emit({
+        type: "prepend",
+        candles: this.cache.getAll(),
+        barsAdded,
+      });
     } catch (cause) {
       if (!this.isCurrentRequest(generation)) {
         return;
@@ -155,6 +209,47 @@ export class CandleDatafeed {
         this.isLoadingOlder = false;
         this.emit({ type: "paging", direction: "older", loading: false });
       }
+    }
+  }
+
+  private applyResponse(
+    response: StudioRunResponse,
+    mode: "replace" | "prepend" = "replace",
+  ): void {
+    const candles = this.parseCandles(response);
+    const countBefore = this.cache.getCount();
+
+    this.cache.set(candles);
+    this.lastResponse = response;
+
+    if (mode === "prepend") {
+      const barsAdded = Math.max(0, candles.length - countBefore);
+      this.emit({
+        type: "prepend",
+        candles: this.cache.getAll(),
+        barsAdded,
+      });
+      return;
+    }
+
+    this.emit({ type: "replace", candles: this.cache.getAll() });
+  }
+
+  private parseCandles(response: StudioRunResponse): Candle[] {
+    return studioResponseToCandles(response, {
+      requestedOutputs: this.spec ? deriveOutputs(this.spec) : [],
+    });
+  }
+
+  private assertReady(): void {
+    if (!this.marketDataKey) {
+      throw new Error("Datafeed.reset() must be called before loading data");
+    }
+
+    if (!this.spec) {
+      throw new Error(
+        "Datafeed.configure() must be called before loading data",
+      );
     }
   }
 

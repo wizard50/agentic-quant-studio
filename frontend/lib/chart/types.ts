@@ -6,7 +6,7 @@ export type ChartStatus = "idle" | "loading" | "ready" | "error";
 export type PageDirection = "older" | "newer";
 export type RangeEdge = "start" | "end";
 
-export interface SeriesKey {
+export interface MarketDataKey {
   exchange: string;
   category: string;
   symbol: string;
@@ -30,13 +30,24 @@ export type DatafeedEvent =
 
 export type DatafeedListener = (event: DatafeedEvent) => void;
 
-export interface ChartSeries {
+export interface HistoryScrollFeed {
+  getHasMoreHistory(): boolean;
+  loadOlder(pageSize?: number): Promise<void>;
+}
+
+export type BlockLayerSeries =
+  | ISeriesApi<"Candlestick">
+  | ISeriesApi<"Histogram">
+  | ISeriesApi<"Line">;
+
+export interface BlockChartSeries {
   chart: IChartApi;
-  candles: ISeriesApi<"Candlestick">;
-  volume: ISeriesApi<"Histogram">;
+  byLayerId: Map<string, BlockLayerSeries>;
+  candlesLayerId: string;
+  histogramLayerIds: string[];
 }
 
 export type FetchCandlesFn = (
-  key: SeriesKey,
+  marketDataKey: MarketDataKey,
   query: CandleQuery,
 ) => Promise<Candle[]>;

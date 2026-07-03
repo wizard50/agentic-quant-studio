@@ -1,9 +1,10 @@
-export { useCandleChart } from "./useCandleChart";
+export { useChartBlockData } from "./useChartBlockData";
 export type {
-  UseCandleChartParams,
-  UseCandleChartResult,
-} from "./useCandleChart";
+  UseChartBlockDataParams,
+  UseChartBlockDataResult,
+} from "./useChartBlockData";
+export { useChartBlockPane } from "./useChartBlockPane";
+export type { UseChartBlockPaneParams } from "./useChartBlockPane";
+export { useLineLayerSeries } from "./useLineLayerSeries";
 export { useChartHistoryScroll } from "./useChartHistoryScroll";
 export { useChartResize } from "./useChartResize";
-export { useChartStackSync } from "./useChartStackSync";
-export type { ChartStackSyncApi } from "./useChartStackSync";

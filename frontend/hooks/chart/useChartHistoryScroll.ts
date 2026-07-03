@@ -1,18 +1,22 @@
 "use client";
 
 import { useEffect, useRef, type RefObject } from "react";
-import type { IChartApi, LogicalRange } from "lightweight-charts";
+import type { LogicalRange } from "lightweight-charts";
 import {
   LOAD_OLDER_DEBOUNCE_MS,
   shouldLoadOlderHistory,
 } from "@/lib/chart/preserveViewport";
-import type { CandleDatafeed, ChartSeries } from "@/lib/chart";
+import {
+  getCandlesSeries,
+  type BlockChartSeries,
+  type HistoryScrollFeed,
+} from "@/lib/chart";
 
 export function useChartHistoryScroll(
-  chartRef: RefObject<IChartApi | null>,
-  seriesRef: RefObject<ChartSeries | null>,
-  datafeedRef: RefObject<CandleDatafeed>,
+  seriesRef: RefObject<BlockChartSeries | null>,
+  datafeedRef: RefObject<HistoryScrollFeed>,
   enabled: boolean,
+  revision: string,
 ): void {
   const loadOlderTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -21,9 +25,9 @@ export function useChartHistoryScroll(
       return;
     }
 
-    const chart = chartRef.current;
-    const series = seriesRef.current;
-    if (!chart || !series) {
+    const chart = seriesRef.current?.chart;
+    const candles = getCandlesSeries(seriesRef.current);
+    if (!chart || !candles) {
       return;
     }
 
@@ -32,7 +36,7 @@ export function useChartHistoryScroll(
         return;
       }
 
-      const barsInfo = series.candles.barsInLogicalRange(range);
+      const barsInfo = candles.barsInLogicalRange(range);
       if (!shouldLoadOlderHistory(barsInfo?.barsBefore)) {
         return;
       }
@@ -54,7 +58,8 @@ export function useChartHistoryScroll(
         clearTimeout(loadOlderTimerRef.current);
         loadOlderTimerRef.current = null;
       }
+
       chart.timeScale().unsubscribeVisibleLogicalRangeChange(scheduleLoadOlder);
     };
-  }, [chartRef, seriesRef, datafeedRef, enabled]);
+  }, [enabled, revision, seriesRef, datafeedRef]);
 }
