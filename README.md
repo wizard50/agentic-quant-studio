@@ -16,10 +16,10 @@ A workspace for building agentic AI systems in quantitative finance and Web3.
 
 This repo is an **early-stage data platform**, not yet an agentic workspace. There is no chat, no RAG, no backtesting engine, and no on-chain integration in the codebase. What works end-to-end today:
 
-- **Parquet warehouse** — Hive-style paths (`exchange/category/symbol/interval/...`), catalog scan, candle read/resample
-- **Rust backend** — Axum API for candles, candle + indicator catalogs, studio graph runs, and a generic background job queue
-- **Next.js frontend** — two pages: Market Research (`/`) and Data Management (`/data`)
-- **Studio crate** — declarative `GraphSpec` for agent-composed computation graphs (chart indicators first; strategy later), with an indicator catalog derived from the node registry
+- **Warehouse** — Hive-partitioned Parquet, catalog scan, read/resample ([`crates/warehouse/README.md`](crates/warehouse/README.md))
+- **Backend** — Axum API, jobs, catalogs ([`crates/backend/README.md`](crates/backend/README.md))
+- **Frontend** — Market Research + Data Management ([`frontend/README.md`](frontend/README.md))
+- **Studio** — `GraphSpec` + runtime + indicator catalog ([`crates/studio/README.md`](crates/studio/README.md))
 
 The name reflects the **long-term vision** (see [Vision](#vision)); the implementation is focused on reliable market data, chart UX, and the graph spec foundation for indicators and strategies.
 
@@ -27,61 +27,13 @@ The name reflects the **long-term vision** (see [Vision](#vision)); the implemen
 
 ## Current features
 
-### Market Research (`/`)
+### Frontend
 
-- Candle chart ([TradingView Lightweight Charts](https://tradingview.github.io/lightweight-charts/)) backed by stored Parquet data
-- Exchange / category / symbol / interval controls
-- **Catalog-gated chart** — waits for `GET /catalog/candles` before loading candles; links to `/data` when no datasets exist for the selected market
-- **Symbol select** — options from `getMarketSymbols()` (exchange + category); placeholder symbol until the catalog loads
-- **Infinite history scroll** — scroll left to load older candles in pages (500 bars); debounced prefetch when fewer than 50 bars remain before the viewport; viewport position preserved when older bars prepend
-- Resampling for intervals other than 1m (warehouse layer)
-- **Dynamic chart indicators** — browse available indicators from `GET /catalog/indicators`, add multiple instances, show/hide lines, edit params (e.g. SMA period), and remove from a chart overlay legend
-- **Per-instance colors** — each indicator instance gets a distinct line color from a 10-color pool
+Two pages: **Market Research** (`/`) — LW Charts candle view with catalog-driven indicators; **Data Management** (`/data`) — ingest, datasets, jobs.
 
-#### Chart indicators
+The chart uses a **layer document → compiled `ChartBlockSpec` → studio run** pipeline. Indicator metadata comes from `GET /catalog/indicators`; the UI hydrates a runtime registry on load.
 
-Indicators are **instances** (kind + params + visibility + color), not hard-coded toggles. The UI loads the catalog from the backend; the chart composes a shared `datasource.candles` node plus one graph node per visible instance and runs it via `POST /studio/runs`.
-
-| Piece | Role |
-|-------|------|
-| `IndicatorBrowser` | Toolbar dialog — lists catalog entries, adds instances with default params |
-| `ChartLegend` | Top-left overlay listing active instances |
-| `IndicatorLayerRow` | Per-instance controls — show/hide, settings, remove |
-| `IndicatorSettingsDialog` | Edit params from registry `configSchema` (e.g. SMA period) |
-| `useChartIndicatorsStore` | Zustand store for instances + per-instance runtime (loading/error) |
-| `useChartIndicators` | Fetches indicator series, manages Lightweight Charts line series + cache |
-| `lib/indicators/` | Frontend registry, run-request builder, color pool, catalog client |
-
-Graph node ids must not contain `.` (port refs use `node_id.port_name`); instance ids are generated as `indicator-sma-{timestamp}-{n}`.
-
-#### Chart stack (frontend)
-
-Event-driven datafeed with a dedicated cache layer — chart components subscribe to typed events instead of fetching directly.
-
-| Piece | Role |
-|-------|------|
-| `CandleDatafeed` | Paged fetch (`PAGE_SIZE` 500), generation guards against stale responses, `loadInitial` / `loadOlder` |
-| `CandleCache` | Sorted, de-duplicated candle store per series; merge on prepend |
-| `datafeedEvent.ts` | Maps events to series updates; `preserveViewportOnPrepend` keeps the visible window stable |
-| `preserveViewport.ts` | History preload threshold and debounce (`150ms`) helpers |
-| `useCandleChart` | Wires chart + datafeed + indicators; handles initial load lifecycle |
-| `useChartIndicators` | Composes studio graphs for visible instances; line series + data cache |
-| `useChartHistoryScroll` | Subscribes to visible logical range; triggers `loadOlder()` |
-| `useChartResize` | ResizeObserver sync for responsive chart layout |
-| `CandleChartPanel` | Chart shell, legend overlay, loading / error states |
-
-**Datafeed events:** `replace` (full window), `prepend` (older page), plus lifecycle signals `loading`, `paging`, `pageError`, `rangeBoundary` (start/end of available data), and `reset` (series change).
-
-Run chart unit tests: `cd frontend && npm test` (datafeed, cache, viewport preservation, candle mapping, indicator store/registry)
-
-### Data Management (`/data`)
-
-The most developed UI:
-
-- **KPI cards** — dataset count, total candles, storage, active jobs (derived from catalog + job API)
-- **Datasets table** — searchable list from the catalog snapshot
-- **Quick Ingest** — queue `ingest_candles` jobs for symbols not yet in the catalog (Bybit spot/linear today)
-- **Active jobs** — pending/running counts from `GET /api/v1/jobs?active=true`
+Details — architecture, components, datafeed, tests, dev setup: **[`frontend/README.md`](frontend/README.md)**
 
 <div>
   <img 
@@ -93,131 +45,19 @@ The most developed UI:
 
 ---
 
-## Studio (`crates/studio`)
+## Backend & data
 
-Foundation for agent-composed **computation graphs** — indicators, logic, and outputs now; strategies on the same model later.
+HTTP API at `/api/v1` (candles, catalogs, jobs, studio runs). Ingestion uses an in-process job queue; candles live in local Parquet (Bybit only today).
 
-**Spec:**
+Details — endpoints, curl examples, jobs, config: **[`crates/backend/README.md`](crates/backend/README.md)**
 
-- **`GraphSpec`** — serializable graph: `id`, `version`, `kind`, `nodes[]`, `edges[]`
-- **`GraphKind`** — graph intent (`chart` today; `strategy` planned)
-- **`NodeSpec`** — `id`, `kind` (registry key), `params` (JSON)
-- **`Edge`** — port-to-port wiring via `PortRef` (`node_id.port_name` in JSON)
+Warehouse layout, catalog, resampling: **[`crates/warehouse/README.md`](crates/warehouse/README.md)**
 
-**Runtime:**
+## Studio
 
-- **`validate`** — node ids, registry kinds, port types, unique input wires, acyclic graph
-- **`execute`** — topological execution into a `PortStore`
-- **`NodeRegistry`** / **`NodeOp`** — pluggable node ops with port/param metadata
-- **Built-in ops** — `datasource.candles`, `indicator.sma`, `indicator.ema`, `indicator.rsi`
-- **`ExecutionContext`** / **`CandleSource`** — async candle loading for data-source nodes
-- **`IndicatorCatalog`** — serializable indicator metadata (kinds, ports, params with types/defaults/min/max) built from `NodeRegistry::indicator_metas()`; exposed as **`GET /api/v1/catalog/indicators`**
+Declarative **`GraphSpec`** + validate/execute runtime. Powers `POST /studio/runs` and `GET /catalog/indicators` (via `IndicatorCatalog` + `chart_defaults`).
 
-UI metadata (node positions, labels, editor groups) will live in a separate **`GraphExtSpec`** later — not mixed into `GraphSpec`. Execute graphs via **`POST /api/v1/studio/runs`** (body: `{ graph, outputs }`, response: requested port values + `meta`).
-
-See [`crates/studio/README.md`](crates/studio/README.md) for API usage and a runnable subgraph example.
-
-```bash
-cargo test -p studio
-```
-
----
-
-## Background jobs
-
-Ingestion and future async work go through a **generic job system** (`crates/backend/src/jobs/`), not candle-specific routes.
-
-| Piece | Role |
-|-------|------|
-| `Job` enum | Tagged JSON (`type` + `payload`); extensible for new job kinds |
-| `JobQueue` | In-memory status (`DashMap`) + `mpsc` channel to a single worker |
-| `processors/` | Per-type handlers (today: `ingest_candles`) |
-
-**Implemented job type:** `ingest_candles` — downloads candle history (full or incremental from last Parquet timestamp), then refreshes the catalog.
-
-**Limitations (important):**
-
-- Jobs live **in memory only** — restart the backend and job history is gone
-- **One worker**, jobs run **sequentially**
-- Duplicate active jobs (same kind + payload signature) return **409 Conflict** with the existing job id
-- Catalog refresh after ingest is automatic; `POST /catalog/candles/refresh` is a separate **fire-and-forget** task (not tracked as a job)
-
----
-
-## Backend API (v1)
-
-Base path: `/api/v1`. Default server: `http://127.0.0.1:3000` (see [Getting started](#getting-started) for ports).
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/candles/{exchange}/{category}/{symbol}/{interval}` | Load historical candles from Parquet — optional query: `?start=`, `?end=`, `?limit=`; **404** if the dataset path does not exist |
-| POST | `/jobs` | Enqueue a job (JSON body, see below) |
-| GET | `/jobs` | List jobs — `?kind=`, `?active=true`, `?status=pending,running`, `?limit=` (max 500) |
-| GET | `/jobs/{id}` | Single job status |
-| GET | `/catalog/candles` | Full candle dataset catalog snapshot |
-| GET | `/catalog/indicators` | Indicator catalog from the studio node registry (kinds, ports, params) |
-| POST | `/catalog/candles/refresh` | Background candle catalog rescan (202, no job record) |
-| POST | `/studio/runs` | Execute a graph — body: `{ graph, outputs }`; returns requested port values + `meta` |
-
-### Indicator catalog example
-
-```bash
-curl -s http://127.0.0.1:3000/api/v1/catalog/indicators | jq '.indicators[] | {kind, params}'
-```
-
-### Run graph example (datasource → SMA)
-
-```bash
-curl -s -X POST http://127.0.0.1:3000/api/v1/studio/runs \
-  -H "Content-Type: application/json" \
-  -d '{
-    "graph": {
-      "id": "ds-sma",
-      "version": 1,
-      "kind": "chart",
-      "nodes": [
-        {
-          "id": "ds1",
-          "kind": "datasource.candles",
-          "params": {
-            "exchange": "bybit",
-            "category": "spot",
-            "symbol": "BTCUSDT",
-            "interval": "1d"
-          }
-        },
-        { "id": "sma20", "kind": "indicator.sma", "params": { "period": 20 } }
-      ],
-      "edges": [
-        { "from": "ds1.close", "to": "sma20.input" }
-      ]
-    },
-    "outputs": ["ds1.timestamp", "ds1.close", "sma20.value"]
-  }' | jq '.outputs["sma20.value"]'
-```
-
-### Create job example (`ingest_candles`)
-
-```bash
-curl -X POST http://127.0.0.1:3000/api/v1/jobs \
-  -H "Content-Type: application/json" \
-  -d '{"type":"ingest_candles","payload":{"exchange":"bybit","category":"spot","symbol":"SOLUSDT"}}'
-```
-
-### List active ingestion jobs
-
-```bash
-curl -s "http://127.0.0.1:3000/api/v1/jobs?active=true&kind=ingest_candles" | jq
-```
-
-Job statuses: `pending`, `running`, `completed`, `failed`, `cancelled`.
-
----
-
-## Data sources
-
-- **Exchange:** Bybit only (`Exchange::Bybit` in `crates/common`)
-- **Storage:** local Parquet under `parquet_base_dir` (default `/tmp/agentic-quant-studio/parquet`, overridable via config)
+Details — spec types, built-in nodes, examples: **[`crates/studio/README.md`](crates/studio/README.md)**
 
 ---
 
@@ -248,38 +88,11 @@ cd agentic-quant-studio
 cargo run -p backend
 ```
 
-Listens on `127.0.0.1:3000` by default (`config/defaults.toml`). Override via `~/.config/agentic-quant-studio/config.toml` or env vars prefixed with `AGENTIC_QUANT_STUDIO__` (see `config/example.toml`).
+Config and API examples: **[`crates/backend/README.md`](crates/backend/README.md)**
 
 ### Frontend
 
-The UI proxies API calls through Next.js: `/api/backend/v1/...` → backend `/api/v1/...` (`frontend/next.config.ts`).
-
-**Port note:** both backend and Next.js default to port **3000**. In development, run them on different ports, for example:
-
-```bash
-# Terminal 1 — backend on 3000
-cargo run -p backend
-
-# Terminal 2 — frontend on 3001, pointing at backend
-cd frontend
-npm install
-NEXT_PUBLIC_BACKEND_URL=http://127.0.0.1:3000 npm run dev -- -p 3001
-```
-
-Open http://localhost:3001 — Data Management is at `/data`.
-
-### Example API usage
-
-```bash
-# Candle catalog size
-curl -s http://127.0.0.1:3000/api/v1/catalog/candles | jq '.datasets | length'
-
-# Indicator catalog (studio registry)
-curl -s http://127.0.0.1:3000/api/v1/catalog/indicators | jq '.indicators | length'
-
-# Load candles (path = dataset identity; query = optional window/limit)
-curl -s "http://127.0.0.1:3000/api/v1/candles/bybit/spot/BTCUSDT/1m?limit=100" | jq 'length'
-```
+**[`frontend/README.md`](frontend/README.md)** — dev server (use a different port than the backend), chart architecture, `npm test`.
 
 ---
 
@@ -289,33 +102,12 @@ curl -s "http://127.0.0.1:3000/api/v1/candles/bybit/spot/BTCUSDT/1m?limit=100" |
 /
 ├── config/              # defaults.toml, example.toml
 ├── crates/
-│   ├── api-client/
-│   ├── backend/
-│   │   └── src/
-│   │       ├── handlers/       # candles, catalog, jobs
-│   │       ├── jobs/           # queue, worker, types, processors
-│   │       └── services/       # candle_service, etc.
-│   ├── common/                 # shared types (Exchange, candles, …)
-│   ├── studio/                 # GraphSpec + runtime + IndicatorCatalog
-│   └── warehouse/              # Parquet I/O, candle catalog builder, downloader
-├── frontend/
-│   ├── app/
-│   │   ├── data/                      # Data Management
-│   │   └── page.tsx                   # Market Research (chart + indicator browser)
-│   ├── components/chart/
-│   │   ├── CandleChartPanel.tsx       # chart panel + legend + status overlays
-│   │   ├── ChartLegend.tsx            # indicator overlay legend
-│   │   ├── IndicatorBrowser.tsx       # catalog picker dialog
-│   │   ├── IndicatorLayerRow.tsx      # per-instance legend row
-│   │   ├── IndicatorSettingsDialog.tsx
-│   │   └── NoDatasetsMessage.tsx      # empty-catalog guidance
-│   ├── hooks/
-│   │   ├── chart/                     # useCandleChart, useChartIndicators, scroll, resize
-│   │   ├── useCatalog.ts              # candle catalog + getMarketSymbols()
-│   │   ├── useIndicatorCatalog.ts     # indicator catalog query
-│   │   └── useJobs.ts                 # job list + active job summary
-│   ├── lib/indicators/                # registry, run builder, color pool, catalog client
-│   └── lib/chart/                     # datafeed, cache, events, viewport helpers
+│   ├── api-client/      # exchange clients (Bybit)
+│   ├── backend/         # Axum API — see crates/backend/README.md
+│   ├── common/          # shared types
+│   ├── studio/          # GraphSpec + runtime — see crates/studio/README.md
+│   └── warehouse/       # Parquet + catalog — see crates/warehouse/README.md
+├── frontend/            # Next.js UI — see frontend/README.md
 └── README.md
 ```
 

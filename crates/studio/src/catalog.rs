@@ -183,7 +183,7 @@ mod tests {
         assert_eq!(sma["chart_defaults"]["role"], "overlay");
 
         let rsi = indicator_entry(&json, "indicator.rsi");
-        assert_eq!(rsi["chart_defaults"]["role"], "oscillator");
+        assert_eq!(rsi["chart_defaults"]["role"], "subchart");
         assert_eq!(rsi["chart_defaults"]["value_range"]["min"], 0.0);
         assert_eq!(rsi["chart_defaults"]["value_range"]["max"], 100.0);
         assert_eq!(rsi["chart_defaults"]["warmup_bars"], 14);

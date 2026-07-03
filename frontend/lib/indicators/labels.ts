@@ -1,4 +1,4 @@
-import { INDICATOR_REGISTRY } from "./registry";
+import { lookupIndicatorDefinition } from "./registry";
 
 function fallbackName(kind: string): string {
   const slug = kind.split(".").pop() ?? kind;
@@ -6,15 +6,15 @@ function fallbackName(kind: string): string {
 }
 
 export function getIndicatorName(kind: string): string {
-  return INDICATOR_REGISTRY[kind]?.name ?? fallbackName(kind);
+  return lookupIndicatorDefinition(kind)?.name ?? fallbackName(kind);
 }
 
 export function getIndicatorDescription(kind: string): string | undefined {
-  return INDICATOR_REGISTRY[kind]?.description;
+  return lookupIndicatorDefinition(kind)?.description;
 }
 
 export function getIndicatorLabel(kind: string): string {
-  const definition = INDICATOR_REGISTRY[kind];
+  const definition = lookupIndicatorDefinition(kind);
   if (definition) {
     return definition.label(definition.defaultParams);
   }

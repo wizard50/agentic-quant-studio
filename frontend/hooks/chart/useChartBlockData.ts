@@ -1,0 +1,132 @@
+"use client";
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { IChartApi } from "lightweight-charts";
+import { Datafeed } from "@/lib/chart";
+import type { ChartStatus, MarketDataKey } from "@/lib/chart";
+import {
+  buildChartBlockSpecFromLayers,
+  maxWarmupBarsFromLayers,
+} from "@/lib/chart-block";
+import type { ChartBlockSpec } from "@/lib/chart-block";
+import { useChartLayersStore } from "@/stores/useChartLayersStore";
+
+export interface UseChartBlockDataParams {
+  exchange: string;
+  category: string;
+  symbol: string;
+  interval: string;
+}
+
+export interface UseChartBlockDataResult {
+  spec: ChartBlockSpec;
+  datafeedRef: React.RefObject<Datafeed>;
+  marketDataKey: MarketDataKey;
+  chartReady: boolean;
+  status: ChartStatus;
+  error: Error | null;
+  mainChartRef: React.RefObject<IChartApi | null>;
+}
+
+export function useChartBlockData({
+  exchange,
+  category,
+  symbol,
+  interval,
+}: UseChartBlockDataParams): UseChartBlockDataResult {
+  const layers = useChartLayersStore((state) => state.layers);
+
+  const marketDataKey = useMemo<MarketDataKey>(
+    () => ({ exchange, category, symbol, interval }),
+    [exchange, category, symbol, interval],
+  );
+
+  const warmupBars = useMemo(() => maxWarmupBarsFromLayers(layers), [layers]);
+
+  const spec = useMemo(
+    () => buildChartBlockSpecFromLayers(marketDataKey, layers),
+    [marketDataKey, layers],
+  );
+
+  const runKey = useMemo(
+    () =>
+      JSON.stringify({
+        graph: spec.data.graph,
+        outputs: spec.data.outputs,
+      }),
+    [spec.data.graph, spec.data.outputs],
+  );
+
+  const datafeedRef = useRef(new Datafeed());
+  const lastLoadedMarketDataKeyRef = useRef<string | null>(null);
+  const mainChartRef = useRef<IChartApi | null>(null);
+
+  const [status, setStatus] = useState<ChartStatus>("idle");
+  const [error, setError] = useState<Error | null>(null);
+
+  const displayStatus: ChartStatus = symbol ? status : "idle";
+  const displayError = symbol ? error : null;
+  const chartReady = displayStatus === "ready";
+
+  useEffect(() => {
+    datafeedRef.current.configure(spec, warmupBars);
+  }, [spec, warmupBars]);
+
+  useEffect(() => {
+    if (!marketDataKey.symbol) {
+      return;
+    }
+
+    const feed = datafeedRef.current;
+    const marketDataKeyToken = JSON.stringify(marketDataKey);
+    const hadDataForMarket =
+      feed.getCandleCount() > 0 &&
+      lastLoadedMarketDataKeyRef.current === marketDataKeyToken;
+
+    let cancelled = false;
+
+    const reload = hadDataForMarket
+      ? feed.refresh()
+      : (feed.reset(marketDataKey), feed.loadInitial());
+
+    reload.then(
+      () => {
+        if (!cancelled) {
+          lastLoadedMarketDataKeyRef.current = marketDataKeyToken;
+          setStatus("ready");
+        }
+      },
+      (cause: unknown) => {
+        if (!cancelled) {
+          setError(cause instanceof Error ? cause : new Error(String(cause)));
+          setStatus("error");
+        }
+      },
+    );
+
+    return () => {
+      cancelled = true;
+    };
+  }, [marketDataKey, runKey]);
+
+  useEffect(() => {
+    const feed = datafeedRef.current;
+
+    return feed.subscribe((event) => {
+      if (event.type === "loading") {
+        setStatus("loading");
+        setError(null);
+      }
+    });
+  }, []);
+
+  return {
+    spec,
+    datafeedRef,
+    marketDataKey,
+    chartReady,
+    status: displayStatus,
+    error: displayError,
+    mainChartRef,
+  };
+}

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import { IndicatorRegistryHydrator } from "@/components/providers/IndicatorRegistryHydrator";
 import { QueryProvider } from "@/components/providers/QueryProvider";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
@@ -21,7 +22,10 @@ export default function RootLayout({
       <body
         className={`${inter.variable} font-sans bg-zinc-950 text-zinc-200 antialiased`}
       >
-        <QueryProvider>{children}</QueryProvider>
+        <QueryProvider>
+          <IndicatorRegistryHydrator />
+          {children}
+        </QueryProvider>
       </body>
     </html>
   );

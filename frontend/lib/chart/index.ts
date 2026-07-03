@@ -1,17 +1,19 @@
-export { fetchCandles } from "./api";
 export { CandleCache } from "./cache";
-export { handleDatafeedEvent, syncSeriesFromEvent } from "./datafeedEvent";
-export type {
-  DatafeedEventContext,
-  DatafeedEventHandlers,
-} from "./datafeedEvent";
-export { createChartWithSeries } from "./createChart";
-export { createOscillatorChart } from "./createOscillatorChart";
 export {
-  syncTimeScaleBetween,
-  syncVisibleLogicalRangeBetween,
-} from "./syncTimeScale";
-export { CandleDatafeed, PAGE_SIZE } from "./datafeed";
+  handleBlockChartDatafeedEvent,
+  hydrateBlockChart,
+  syncBlockChartFromEvent,
+} from "./datafeedEvent";
+export type { BlockChartDatafeedEventContext } from "./datafeedEvent";
+export { PAGE_SIZE } from "./constants";
+export {
+  createBlockChart,
+  getCandlesSeries,
+  getHistogramSeries,
+  getLayerSeries,
+} from "./createBlockChart";
+export { Datafeed } from "./datafeed";
+export { estimateBarDurationMs } from "./viewportMath";
 export {
   HISTORY_PRELOAD_THRESHOLD,
   LOAD_OLDER_DEBOUNCE_MS,
@@ -28,13 +30,15 @@ export {
 export { toLineSeriesData } from "./mapSeries";
 export { CHART_COLORS } from "./theme";
 export type {
+  BlockChartSeries,
+  BlockLayerSeries,
   CandleQuery,
-  ChartSeries,
   ChartStatus,
   DatafeedEvent,
   DatafeedListener,
   FetchCandlesFn,
+  HistoryScrollFeed,
   PageDirection,
   RangeEdge,
-  SeriesKey,
+  MarketDataKey,
 } from "./types";

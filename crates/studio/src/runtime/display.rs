@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "snake_case")]
 pub enum ChartRole {
     Overlay,
-    Oscillator,
+    Subchart,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

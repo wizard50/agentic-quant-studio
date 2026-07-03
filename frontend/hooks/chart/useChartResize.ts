@@ -1,35 +1,58 @@
 "use client";
 
-import type { IChartApi } from "lightweight-charts";
 import { useEffect, type RefObject } from "react";
+import type { BlockChartSeries } from "@/lib/chart";
 
-export function useChartResize(
-  containerRef: RefObject<HTMLDivElement | null>,
-  chartRef: RefObject<IChartApi | null>,
-): void {
+export interface UseChartResizeParams {
+  containerRef: RefObject<HTMLDivElement | null>;
+  seriesRef: RefObject<BlockChartSeries | null>;
+  revision: string;
+  onResized?: () => void;
+  onContainerResize?: (height: number) => void;
+}
+
+export function useChartResize({
+  containerRef,
+  seriesRef,
+  revision,
+  onResized,
+  onContainerResize,
+}: UseChartResizeParams): void {
   useEffect(() => {
     const container = containerRef.current;
     if (!container) {
       return;
     }
 
+    let disposed = false;
     let raf = 0;
 
     const resize = () => {
-      const chart = chartRef.current;
-      if (!chart) {
+      if (disposed) {
         return;
       }
 
       const { clientWidth, clientHeight } = container;
+      onContainerResize?.(clientHeight);
+
       if (clientWidth === 0 || clientHeight === 0) {
         return;
       }
 
+      const chart = seriesRef.current?.chart;
+      if (!chart) {
+        return;
+      }
+
       chart.resize(clientWidth, clientHeight);
+      onResized?.();
     };
 
     const observer = new ResizeObserver(() => {
+      if (disposed) {
+        return;
+      }
+
       cancelAnimationFrame(raf);
       raf = requestAnimationFrame(resize);
     });
@@ -38,8 +61,9 @@ export function useChartResize(
     resize();
 
     return () => {
+      disposed = true;
       cancelAnimationFrame(raf);
       observer.disconnect();
     };
-  }, [containerRef, chartRef]);
+  }, [containerRef, onContainerResize, onResized, revision, seriesRef]);
 }

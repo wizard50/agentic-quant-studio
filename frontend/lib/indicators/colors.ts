@@ -1,4 +1,4 @@
-import type { IndicatorInstance } from "./types";
+import type { IndicatorChartLayer } from "@/lib/chart-block";
 
 /** Ten hues spaced for legibility on the dark chart background. */
 export const INDICATOR_COLOR_POOL = [
@@ -15,9 +15,9 @@ export const INDICATOR_COLOR_POOL = [
 ] as const;
 
 export function pickIndicatorColor(
-  existingInstances: IndicatorInstance[],
+  existingLayers: IndicatorChartLayer[],
 ): string {
-  const used = new Set(existingInstances.map((instance) => instance.color));
+  const used = new Set(existingLayers.map((layer) => layer.color));
 
   for (const color of INDICATOR_COLOR_POOL) {
     if (!used.has(color)) {
@@ -26,6 +26,6 @@ export function pickIndicatorColor(
   }
 
   return INDICATOR_COLOR_POOL[
-    existingInstances.length % INDICATOR_COLOR_POOL.length
+    existingLayers.length % INDICATOR_COLOR_POOL.length
   ]!;
 }

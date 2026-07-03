@@ -1,22 +1,26 @@
 import { describe, expect, it } from "vitest";
+import type { IndicatorChartLayer } from "@/lib/chart-block";
+import { createVolumeBuiltinLayer } from "./builtins";
 import {
   buildAutoscaleInfoProvider,
   buildLineSeriesOptions,
-  filterOscillatorInstances,
-  filterOverlayInstances,
-  isOscillator,
-  isOscillatorInstance,
-  isOverlayInstance,
+  filterLineIndicatorLayers,
+  filterOverlayIndicatorLayers,
+  filterSubchartIndicatorLayers,
+  isLineIndicatorLayer,
+  isOverlayIndicatorLayer,
+  isSubchart,
+  isSubchartIndicatorLayer,
 } from "./render";
-import { INDICATOR_REGISTRY, RSI_KIND, SMA_KIND } from "./registry";
-import type { IndicatorInstance } from "./types";
+import { lookupIndicatorDefinition } from "./registry";
 
-function makeInstance(
-  overrides: Partial<IndicatorInstance> = {},
-): IndicatorInstance {
+function makeLayer(
+  overrides: Partial<IndicatorChartLayer> = {},
+): IndicatorChartLayer {
   return {
     id: "rsi-1",
-    kind: RSI_KIND,
+    kind: "indicator",
+    indicatorKind: "indicator.rsi",
     params: { period: 14 },
     visible: true,
     color: "#ff0000",
@@ -25,26 +29,31 @@ function makeInstance(
 }
 
 describe("indicator render", () => {
-  it("identifies oscillator indicators from chart role", () => {
-    expect(isOscillator(INDICATOR_REGISTRY[RSI_KIND]!)).toBe(true);
-    expect(isOscillator(INDICATOR_REGISTRY[SMA_KIND]!)).toBe(false);
+  it("identifies subchart indicators from chart role", () => {
+    expect(isSubchart(lookupIndicatorDefinition("indicator.rsi")!)).toBe(true);
+    expect(isSubchart(lookupIndicatorDefinition("indicator.sma")!)).toBe(false);
   });
 
-  it("partitions instances by chart role", () => {
-    const instances = [
-      makeInstance(),
-      makeInstance({ id: "sma-1", kind: SMA_KIND }),
+  it("partitions indicator layers by chart role and series type", () => {
+    const layers = [
+      createVolumeBuiltinLayer(),
+      makeLayer(),
+      makeLayer({ id: "sma-1", indicatorKind: "indicator.sma" }),
     ];
 
-    expect(isOscillatorInstance(instances[0]!)).toBe(true);
-    expect(isOverlayInstance(instances[1]!)).toBe(true);
-    expect(filterOscillatorInstances(instances)).toHaveLength(1);
-    expect(filterOverlayInstances(instances)).toHaveLength(1);
+    expect(isSubchartIndicatorLayer(layers[0]!)).toBe(true);
+    expect(isSubchartIndicatorLayer(layers[1]!)).toBe(true);
+    expect(isOverlayIndicatorLayer(layers[2]!)).toBe(true);
+    expect(filterSubchartIndicatorLayers(layers)).toHaveLength(2);
+    expect(filterOverlayIndicatorLayers(layers)).toHaveLength(1);
+    expect(filterLineIndicatorLayers(layers)).toHaveLength(2);
+    expect(isLineIndicatorLayer(layers[0]!)).toBe(false);
+    expect(isLineIndicatorLayer(layers[1]!)).toBe(true);
   });
 
-  it("builds fixed autoscale range for oscillators", () => {
+  it("builds fixed autoscale range for subcharts", () => {
     const provider = buildAutoscaleInfoProvider({
-      role: "oscillator",
+      role: "subchart",
       value_range: { min: 0, max: 100 },
     });
 
@@ -55,19 +64,20 @@ describe("indicator render", () => {
   });
 
   it("builds line series options without embedding on the price chart", () => {
-    const instance = makeInstance();
-    const definition = INDICATOR_REGISTRY[RSI_KIND]!;
+    const layer = makeLayer();
+    const definition = lookupIndicatorDefinition("indicator.rsi")!;
 
-    expect(buildLineSeriesOptions(instance, definition)).toMatchObject({
+    expect(buildLineSeriesOptions(layer, definition)).toMatchObject({
       color: "#ff0000",
       visible: true,
       title: "RSI 14",
+      crosshairMarkerVisible: false,
     });
     expect(
-      buildLineSeriesOptions(instance, definition).priceScaleId,
+      buildLineSeriesOptions(layer, definition).priceScaleId,
     ).toBeUndefined();
 
-    const autoscaleInfoProvider = buildLineSeriesOptions(instance, definition)
+    const autoscaleInfoProvider = buildLineSeriesOptions(layer, definition)
       .autoscaleInfoProvider as
       | (() => { priceRange: { minValue: number; maxValue: number } })
       | undefined;

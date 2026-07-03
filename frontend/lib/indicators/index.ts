@@ -9,46 +9,49 @@ export type {
   IndicatorCatalogEntry,
   ValueRange,
 } from "./catalog";
+export { normalizeChartDefaults } from "./buildFromCatalog";
 export { INDICATOR_COLOR_POOL, pickIndicatorColor } from "./colors";
 export {
   createInstanceId,
   defaultParamsFromCatalog,
-  getInstanceColor,
-  getInstanceLabel,
+  getIndicatorDefinition,
+  getIndicatorLayerColor,
+  getIndicatorLayerLabel,
 } from "./instance";
 export {
   getIndicatorDescription,
   getIndicatorLabel,
   getIndicatorName,
 } from "./labels";
-export { buildIndicatorDataRange } from "./buildDataRange";
-export type { IndicatorDataRange } from "./buildDataRange";
-export { buildIndicatorRunRequest } from "./buildRunRequest";
+export {
+  createVolumeBuiltinLayer,
+  isBuiltinIndicatorLayer,
+  VOLUME_KIND,
+  VOLUME_LAYER_ID,
+  volumeDefinition,
+} from "./builtins";
 export {
   buildAutoscaleInfoProvider,
   buildLineSeriesOptions,
-  filterOscillatorInstances,
-  filterOverlayInstances,
-  isOscillator,
-  isOscillatorInstance,
-  isOverlayInstance,
+  filterLineIndicatorLayers,
+  filterOverlayIndicatorLayers,
+  filterSubchartIndicatorLayers,
+  isLineIndicatorLayer,
+  isOverlay,
+  isOverlayIndicatorLayer,
+  isSubchart,
+  isSubchartIndicatorLayer,
+  seriesTypeForDefinition,
 } from "./render";
-export type { IndicatorRunParams } from "./buildRunRequest";
 export {
-  EMA_KIND,
-  INDICATOR_REGISTRY,
-  RSI_KIND,
-  SMA_KIND,
-  TEMP_SMA_INSTANCE_ID,
-  emaDefinition,
-  rsiDefinition,
-  smaDefinition,
+  getIndicatorRegistry,
+  hydrateIndicatorRegistry,
+  lookupIndicatorDefinition,
+  resetIndicatorRegistry,
 } from "./registry";
 export type {
   GraphContribution,
   IndicatorDefinition,
-  IndicatorInstance,
   IndicatorParams,
-  IndicatorRuntime,
   ParamField,
 } from "./types";

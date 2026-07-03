@@ -1,14 +1,16 @@
 import { describe, expect, it } from "vitest";
+import type { IndicatorChartLayer } from "@/lib/chart-block";
 import {
   createInstanceId,
   defaultParamsFromCatalog,
-  getInstanceColor,
-  getInstanceLabel,
+  getIndicatorDefinition,
+  getIndicatorLayerColor,
+  getIndicatorLayerLabel,
 } from "./instance";
-import type { IndicatorInstance } from "./types";
+import { lookupIndicatorDefinition } from "./registry";
 
-describe("indicator instance helpers", () => {
-  it("creates graph-safe instance ids from dotted kinds", () => {
+describe("indicator layer helpers", () => {
+  it("creates graph-safe layer ids from dotted kinds", () => {
     const id = createInstanceId("indicator.sma");
 
     expect(id.startsWith("indicator-sma-")).toBe(true);
@@ -26,27 +28,44 @@ describe("indicator instance helpers", () => {
     expect(params).toEqual({ period: 20 });
   });
 
-  it("labels instances with their configured params", () => {
-    const instance: IndicatorInstance = {
+  it("labels indicator layers with their configured params", () => {
+    const layer: IndicatorChartLayer = {
       id: "sma-1",
-      kind: "indicator.sma",
+      kind: "indicator",
+      indicatorKind: "indicator.sma",
       params: { period: 50 },
       visible: true,
       color: "#3b82f6",
     };
 
-    expect(getInstanceLabel(instance)).toBe("SMA 50");
+    expect(getIndicatorLayerLabel(layer)).toBe("SMA 50");
   });
 
-  it("returns the color assigned to the instance", () => {
-    const instance: IndicatorInstance = {
+  it("resolves the registry definition for an indicator layer", () => {
+    const layer: IndicatorChartLayer = {
       id: "sma-1",
-      kind: "indicator.sma",
+      kind: "indicator",
+      indicatorKind: "indicator.sma",
       params: { period: 20 },
       visible: true,
       color: "#ec4899",
     };
 
-    expect(getInstanceColor(instance)).toBe("#ec4899");
+    expect(getIndicatorDefinition(layer)).toBe(
+      lookupIndicatorDefinition("indicator.sma"),
+    );
+  });
+
+  it("returns the color assigned to the indicator layer", () => {
+    const layer: IndicatorChartLayer = {
+      id: "sma-1",
+      kind: "indicator",
+      indicatorKind: "indicator.sma",
+      params: { period: 20 },
+      visible: true,
+      color: "#ec4899",
+    };
+
+    expect(getIndicatorLayerColor(layer)).toBe("#ec4899");
   });
 });

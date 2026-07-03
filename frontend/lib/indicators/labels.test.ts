@@ -12,16 +12,10 @@ describe("indicator labels", () => {
     expect(getIndicatorName("indicator.rsi")).toBe("RSI");
   });
 
-  it("returns the registry description when available", () => {
-    expect(getIndicatorDescription("indicator.sma")).toBe(
-      "Simple moving average",
-    );
-    expect(getIndicatorDescription("indicator.ema")).toBe(
-      "Exponential moving average",
-    );
-    expect(getIndicatorDescription("indicator.rsi")).toBe(
-      "Relative strength index",
-    );
+  it("returns undefined descriptions until the catalog exposes them", () => {
+    expect(getIndicatorDescription("indicator.sma")).toBeUndefined();
+    expect(getIndicatorDescription("indicator.ema")).toBeUndefined();
+    expect(getIndicatorDescription("indicator.rsi")).toBeUndefined();
   });
 
   it("uses the parameterized label for active chart chips", () => {

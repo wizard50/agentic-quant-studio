@@ -1,6 +1,8 @@
 export type CatalogType = "integer" | "number" | "string" | "boolean";
 
-export type ChartRole = "overlay" | "oscillator";
+export type ChartRole = "overlay" | "subchart";
+
+export type SeriesType = "line" | "histogram";
 
 export interface ValueRange {
   min: number;
@@ -9,6 +11,8 @@ export interface ValueRange {
 
 export interface ChartDefaults {
   role: ChartRole;
+  series_type?: SeriesType;
+  default_pane_height?: number;
   value_range?: ValueRange;
   warmup_bars?: number;
 }

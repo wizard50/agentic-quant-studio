@@ -12,23 +12,26 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { INDICATOR_REGISTRY } from "@/lib/indicators";
-import type { IndicatorInstance, IndicatorParams } from "@/lib/indicators";
+import type { IndicatorChartLayer } from "@/lib/chart-block";
+import { lookupIndicatorDefinition } from "@/lib/indicators";
+import type { IndicatorParams } from "@/lib/indicators";
 import { getIndicatorName } from "@/lib/indicators/labels";
-import { useChartIndicatorsStore } from "@/stores/useChartIndicatorsStore";
+import { useChartLayersStore } from "@/stores/useChartLayersStore";
 
 interface IndicatorSettingsDialogProps {
-  instance: IndicatorInstance;
+  layer: IndicatorChartLayer;
   onClose: () => void;
 }
 
 export function IndicatorSettingsDialog({
-  instance,
+  layer,
   onClose,
 }: IndicatorSettingsDialogProps) {
-  const updateParams = useChartIndicatorsStore((state) => state.updateParams);
-  const definition = INDICATOR_REGISTRY[instance.kind];
-  const [values, setValues] = useState<IndicatorParams>(instance.params);
+  const updateIndicatorParams = useChartLayersStore(
+    (state) => state.updateIndicatorParams,
+  );
+  const definition = lookupIndicatorDefinition(layer.indicatorKind);
+  const [values, setValues] = useState<IndicatorParams>(layer.params);
   const [error, setError] = useState<string | null>(null);
 
   if (!definition) {
@@ -42,7 +45,7 @@ export function IndicatorSettingsDialog({
   };
 
   const handleSave = () => {
-    const nextParams: IndicatorParams = { ...instance.params };
+    const nextParams: IndicatorParams = { ...layer.params };
 
     for (const field of definition.configSchema) {
       const raw = values[field.name];
@@ -74,7 +77,7 @@ export function IndicatorSettingsDialog({
       }
     }
 
-    updateParams(instance.id, nextParams);
+    updateIndicatorParams(layer.id, nextParams);
     onClose();
   };
 
@@ -82,9 +85,11 @@ export function IndicatorSettingsDialog({
     <Dialog open onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>{getIndicatorName(instance.kind)} settings</DialogTitle>
+          <DialogTitle>
+            {getIndicatorName(layer.indicatorKind)} settings
+          </DialogTitle>
           <DialogDescription>
-            Adjust parameters for this indicator instance.
+            Adjust parameters for this indicator layer.
           </DialogDescription>
         </DialogHeader>
 
@@ -94,11 +99,11 @@ export function IndicatorSettingsDialog({
 
             return (
               <div key={field.name} className="flex flex-col gap-2">
-                <Label htmlFor={`${instance.id}-${field.name}`}>
+                <Label htmlFor={`${layer.id}-${field.name}`}>
                   {field.label ?? field.name}
                 </Label>
                 <Input
-                  id={`${instance.id}-${field.name}`}
+                  id={`${layer.id}-${field.name}`}
                   type={field.type === "number" ? "number" : "text"}
                   min={field.min}
                   max={field.max}
