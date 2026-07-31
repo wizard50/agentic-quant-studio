@@ -8,6 +8,7 @@ pub mod services;
 pub mod state;
 
 use crate::jobs::{context::JobContext, queue::JobQueue, types::Job, worker::run_worker};
+use crate::services::StudyStore;
 use anyhow::Result;
 use config::Config;
 use state::AppState;
@@ -41,6 +42,7 @@ async fn main() -> Result<()> {
         config,
         job_queue,
         catalog,
+        study_store: StudyStore::new(),
     };
 
     // Spawn worker

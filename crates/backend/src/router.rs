@@ -3,7 +3,7 @@ use crate::state::AppState;
 use axum::{
     Router,
     http::{HeaderValue, StatusCode},
-    routing::{get, post},
+    routing::{get, post, put},
 };
 use std::time::Duration;
 use tower::ServiceBuilder;
@@ -52,4 +52,9 @@ fn api_routes() -> Router<AppState> {
         .route("/catalog/candles/refresh", post(catalog::refresh_candles))
         .route("/catalog/indicators", get(catalog::indicators))
         .route("/studio/runs", post(studio::run_graph))
+        .route("/studio/validate", post(studio::validate_graph))
+        .route(
+            "/workspaces/{workspace_id}/study",
+            put(studio::apply_study).get(studio::get_study),
+        )
 }

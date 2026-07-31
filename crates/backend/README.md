@@ -32,8 +32,13 @@ Base path: `/api/v1`. The Next.js frontend proxies these as `/api/backend/v1/...
 | GET | `/catalog/indicators` | Indicator catalog from studio registry |
 | POST | `/catalog/candles/refresh` | Background catalog rescan (202, not a job) |
 | POST | `/studio/runs` | Execute a graph — `{ graph, outputs }` → port values + `meta` |
+| POST | `/studio/validate` | Validate a graph only — `{ graph }` → `{ ok: true }` (no execute/persist) |
+| PUT | `/workspaces/{workspace_id}/study` | Apply study — validate-on-write `{ graph, presentation_overrides?, expected_version? }` |
+| GET | `/workspaces/{workspace_id}/study` | Latest applied study for workspace — **404** if none |
 
 Job statuses: `pending`, `running`, `completed`, `failed`, `cancelled`.
+
+**Studies** are in-memory only (lost on restart), one document per `workspace_id`. `StudyDocument.version` is the study revision for polling/concurrency — not `graph.version` (graph schema).
 
 ### Examples
 
@@ -54,6 +59,14 @@ curl -X POST http://127.0.0.1:3000/api/v1/jobs \
 
 # Active ingestion jobs
 curl -s "http://127.0.0.1:3000/api/v1/jobs?active=true&kind=ingest_candles" | jq
+
+# Apply a study (validate-on-write)
+curl -s -X PUT http://127.0.0.1:3000/api/v1/workspaces/demo/study \
+  -H "Content-Type: application/json" \
+  -d '{"graph":{"id":"g1","version":1,"kind":"chart","nodes":[],"edges":[]}}' | jq
+
+# Load study
+curl -s http://127.0.0.1:3000/api/v1/workspaces/demo/study | jq
 ```
 
 Studio run requests are documented in [`../studio/README.md`](../studio/README.md).
@@ -83,7 +96,7 @@ Generic job system in `src/jobs/` — not candle-specific routes.
 src/
   handlers/     # candles, catalog, jobs, studio
   jobs/         # queue, worker, types, processors
-  services/     # candle_service, studio_candles
+  services/     # candle_service, studio_candles, study_store
   models/       # API request/response types
   catalog.rs    # in-process candle catalog handle
   config.rs
