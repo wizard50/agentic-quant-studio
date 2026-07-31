@@ -3,17 +3,52 @@ use std::{
     str::FromStr,
 };
 
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use studio::{
     error::Error,
     runtime::{PortStore, Value},
-    spec::PortRef,
+    spec::{GraphSpec, PortRef},
 };
 
 #[derive(Debug, Deserialize)]
 pub struct StudioRunRequest {
-    pub graph: studio::spec::GraphSpec,
+    pub graph: GraphSpec,
     pub outputs: Vec<String>,
+}
+
+/// Applied study document for a workspace.
+///
+/// `version` is the **study revision** (for polling / concurrency), not
+/// `graph.version` (graph schema revision).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StudyDocument {
+    pub workspace_id: String,
+    pub version: u64,
+    pub updated_at: DateTime<Utc>,
+    pub graph: GraphSpec,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub presentation_overrides: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ApplyStudyRequest {
+    pub graph: GraphSpec,
+    #[serde(default)]
+    pub presentation_overrides: Option<serde_json::Value>,
+    /// When set, apply fails with conflict if the stored study version differs.
+    #[serde(default)]
+    pub expected_version: Option<u64>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ValidateStudyRequest {
+    pub graph: GraphSpec,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ValidateStudyResponse {
+    pub ok: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -116,7 +151,7 @@ mod tests {
     #[test]
     fn request_rejects_empty_outputs() {
         let request = StudioRunRequest {
-            graph: studio::spec::GraphSpec {
+            graph: GraphSpec {
                 id: "test".to_string(),
                 version: 1,
                 kind: studio::spec::GraphKind::Chart,
@@ -128,6 +163,50 @@ mod tests {
 
         let err = request.validate_outputs().unwrap_err();
         assert!(matches!(err, Error::InvalidParameter(_)));
+    }
+
+    #[test]
+    fn apply_study_request_deserializes_optional_fields() {
+        let body: ApplyStudyRequest = serde_json::from_str(
+            r#"{
+            "graph": {
+              "id": "ds-sma",
+              "version": 1,
+              "kind": "chart",
+              "nodes": [],
+              "edges": []
+            }
+          }"#,
+        )
+        .unwrap();
+
+        assert!(body.presentation_overrides.is_none());
+        assert!(body.expected_version.is_none());
+        assert_eq!(body.graph.id, "ds-sma");
+    }
+
+    #[test]
+    fn study_document_serde_roundtrip() {
+        let doc = StudyDocument {
+            workspace_id: "ws-1".to_string(),
+            version: 2,
+            updated_at: Utc::now(),
+            graph: GraphSpec {
+                id: "g".to_string(),
+                version: 1,
+                kind: studio::spec::GraphKind::Chart,
+                nodes: vec![],
+                edges: vec![],
+            },
+            presentation_overrides: Some(serde_json::json!({ "pane": "main" })),
+        };
+
+        let json = serde_json::to_string(&doc).unwrap();
+        let restored: StudyDocument = serde_json::from_str(&json).unwrap();
+        assert_eq!(restored.workspace_id, doc.workspace_id);
+        assert_eq!(restored.version, doc.version);
+        assert_eq!(restored.graph.id, doc.graph.id);
+        assert_eq!(restored.presentation_overrides, doc.presentation_overrides);
     }
 
     #[test]
