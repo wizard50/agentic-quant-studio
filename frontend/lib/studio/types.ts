@@ -37,3 +37,36 @@ export interface StudioRunResponse {
   outputs: Record<string, StudioSeriesValue>;
   meta: StudioRunMeta;
 }
+
+export type StudyStatus = "draft" | "applied" | "archived";
+
+export type StudyCreatedBy = "user" | "agent";
+
+/** Flat study from GET/POST/PUT /studies. */
+export interface Study {
+  id: string;
+  status: StudyStatus;
+  /** Study revision for concurrency — not graph.version. */
+  version: number;
+  updated_at: string;
+  graph: GraphSpec;
+  title?: string;
+  created_by?: StudyCreatedBy;
+  presentation_overrides?: unknown;
+}
+
+export interface CreateStudyRequest {
+  graph: GraphSpec;
+  title?: string;
+  created_by?: StudyCreatedBy;
+  presentation_overrides?: unknown;
+}
+
+export interface UpdateStudyRequest {
+  graph?: GraphSpec;
+  title?: string;
+  presentation_overrides?: unknown;
+  expected_version?: number;
+  /** Set to `"applied"` to accept a draft. */
+  status?: StudyStatus;
+}
