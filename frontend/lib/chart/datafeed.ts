@@ -92,7 +92,9 @@ export class Datafeed {
       return;
     }
 
-    this.applyResponse(response);
+    // Fetch PAGE_SIZE + warmup so indicators are valid across the display window,
+    // but only keep the newest `limit` candles on the chart (warmup is history padding).
+    this.applyResponse(response, "replace", { displayLimit: limit });
 
     if (this.cache.getCount() < limit) {
       this.hasMoreHistory = false;
@@ -109,6 +111,8 @@ export class Datafeed {
     }
 
     const generation = this.generation;
+    this.emit({ type: "loading" });
+
     const oldest = this.cache.getOldestTimestamp();
     const newest = this.cache.getNewestTimestamp();
     const count = this.cache.getCount();
@@ -216,11 +220,22 @@ export class Datafeed {
   private applyResponse(
     response: StudioRunResponse,
     mode: "replace" | "prepend" = "replace",
+    options: { displayLimit?: number } = {},
   ): void {
-    const candles = this.parseCandles(response);
+    let candles = this.parseCandles(response);
+    const displayLimit = options.displayLimit;
+    if (
+      displayLimit != null &&
+      displayLimit > 0 &&
+      candles.length > displayLimit
+    ) {
+      candles = candles.slice(candles.length - displayLimit);
+    }
+
     const countBefore = this.cache.getCount();
 
     this.cache.set(candles);
+    // Keep the full run response (including warmup bars) for indicator alignment.
     this.lastResponse = response;
 
     if (mode === "prepend") {
