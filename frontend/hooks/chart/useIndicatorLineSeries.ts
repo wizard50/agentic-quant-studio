@@ -203,6 +203,13 @@ export function useIndicatorLineSeries({
   }, [layoutKey, removeSeries]);
 
   useEffect(() => {
+    if (!chartReady) {
+      for (const layerId of [...seriesByIdRef.current.keys()]) {
+        removeSeries(layerId);
+      }
+      return;
+    }
+
     const currentIds = new Set(allIndicatorLayers.map((layer) => layer.id));
 
     for (const layerId of seriesByIdRef.current.keys()) {
@@ -216,10 +223,6 @@ export function useIndicatorLineSeries({
       if (layer && !isPlacementMatch(layer)) {
         removeSeries(layerId);
       }
-    }
-
-    if (!chartReady) {
-      return;
     }
 
     for (const layer of indicatorLayers) {

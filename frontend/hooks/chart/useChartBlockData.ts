@@ -6,9 +6,12 @@ import { Datafeed } from "@/lib/chart";
 import type { ChartStatus, MarketDataKey } from "@/lib/chart";
 import {
   buildChartBlockSpecFromLayers,
+  buildChartBlockSpecFromStudy,
+  marketDataKeyFromGraph,
   maxWarmupBarsFromLayers,
 } from "@/lib/chart-block";
 import type { ChartBlockSpec } from "@/lib/chart-block";
+import type { Study } from "@/lib/studio/types";
 import { useChartLayersStore } from "@/stores/useChartLayersStore";
 
 export interface UseChartBlockDataParams {
@@ -16,6 +19,8 @@ export interface UseChartBlockDataParams {
   category: string;
   symbol: string;
   interval: string;
+  /** When set, drives ChartBlockSpec from the study graph (presentation v0). */
+  study?: Study | null;
 }
 
 export interface UseChartBlockDataResult {
@@ -26,6 +31,8 @@ export interface UseChartBlockDataResult {
   status: ChartStatus;
   error: Error | null;
   mainChartRef: React.RefObject<IChartApi | null>;
+  /** True when rendering from an applied study rather than layer document. */
+  studyMode: boolean;
 }
 
 export function useChartBlockData({
@@ -33,28 +40,44 @@ export function useChartBlockData({
   category,
   symbol,
   interval,
+  study = null,
 }: UseChartBlockDataParams): UseChartBlockDataResult {
   const layers = useChartLayersStore((state) => state.layers);
 
-  const marketDataKey = useMemo<MarketDataKey>(
-    () => ({ exchange, category, symbol, interval }),
-    [exchange, category, symbol, interval],
+  const studyMode = study != null;
+
+  const marketDataKey = useMemo<MarketDataKey>(() => {
+    if (study) {
+      const fromGraph = marketDataKeyFromGraph(study.graph);
+      if (fromGraph) {
+        return fromGraph;
+      }
+    }
+
+    return { exchange, category, symbol, interval };
+  }, [study, exchange, category, symbol, interval]);
+
+  const warmupBars = useMemo(
+    () => (studyMode ? 0 : maxWarmupBarsFromLayers(layers)),
+    [layers, studyMode],
   );
 
-  const warmupBars = useMemo(() => maxWarmupBarsFromLayers(layers), [layers]);
+  const spec = useMemo(() => {
+    if (study) {
+      return buildChartBlockSpecFromStudy(study.graph);
+    }
 
-  const spec = useMemo(
-    () => buildChartBlockSpecFromLayers(marketDataKey, layers),
-    [marketDataKey, layers],
-  );
+    return buildChartBlockSpecFromLayers(marketDataKey, layers);
+  }, [study, marketDataKey, layers]);
 
   const runKey = useMemo(
     () =>
       JSON.stringify({
         graph: spec.data.graph,
         outputs: spec.data.outputs,
+        studyVersion: study?.version ?? null,
       }),
-    [spec.data.graph, spec.data.outputs],
+    [spec.data.graph, spec.data.outputs, study?.version],
   );
 
   const datafeedRef = useRef(new Datafeed());
@@ -64,8 +87,8 @@ export function useChartBlockData({
   const [status, setStatus] = useState<ChartStatus>("idle");
   const [error, setError] = useState<Error | null>(null);
 
-  const displayStatus: ChartStatus = symbol ? status : "idle";
-  const displayError = symbol ? error : null;
+  const displayStatus: ChartStatus = marketDataKey.symbol ? status : "idle";
+  const displayError = marketDataKey.symbol ? error : null;
   const chartReady = displayStatus === "ready";
 
   useEffect(() => {
@@ -94,6 +117,7 @@ export function useChartBlockData({
         if (!cancelled) {
           lastLoadedMarketDataKeyRef.current = marketDataKeyToken;
           setStatus("ready");
+          setError(null);
         }
       },
       (cause: unknown) => {
@@ -128,5 +152,6 @@ export function useChartBlockData({
     status: displayStatus,
     error: displayError,
     mainChartRef,
+    studyMode,
   };
 }

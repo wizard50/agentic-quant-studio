@@ -18,12 +18,15 @@ import { useBlockNativeLayers } from "./useBlockNativeLayers";
 import { useChartHistoryScroll } from "./useChartHistoryScroll";
 import { useChartResize } from "./useChartResize";
 import { useLineLayerSeries } from "./useLineLayerSeries";
+import { usePortLineSeries } from "./usePortLineSeries";
 
 export interface UseChartBlockPaneParams {
   panes: PaneSpec[];
   datafeedRef: React.RefObject<Datafeed>;
   chartReady: boolean;
   mainChartRef: React.RefObject<IChartApi | null>;
+  /** When true, render lines from pane LayerSpecs (study mode). */
+  studyMode?: boolean;
 }
 
 export function useChartBlockPane({
@@ -31,6 +34,7 @@ export function useChartBlockPane({
   datafeedRef,
   chartReady,
   mainChartRef,
+  studyMode = false,
 }: UseChartBlockPaneParams) {
   const containerRef = useRef<HTMLDivElement>(null);
   const seriesRef = useRef<BlockChartSeries | null>(null);
@@ -125,9 +129,18 @@ export function useChartBlockPane({
   useLineLayerSeries({
     chartRef: mainChartRef,
     datafeedRef,
+    chartReady: chartReady && !studyMode,
+    panes,
+    layoutKey,
+  });
+
+  usePortLineSeries({
+    chartRef: mainChartRef,
+    datafeedRef,
     chartReady,
     panes,
     layoutKey,
+    enabled: studyMode,
   });
 
   return {

@@ -1,5 +1,5 @@
 import type { StudioRunRequest } from "@/lib/studio/types";
-import { DS_NODE_ID } from "./constants";
+import { findCandlesDatasource } from "./datasource";
 import { deriveOutputs } from "./deriveOutputs";
 import type { ChartBlockSpec } from "./types";
 
@@ -14,11 +14,11 @@ export function buildStudioRunRequest(
   range?: ViewportRange,
 ): StudioRunRequest {
   const graph = structuredClone(spec.data.graph);
-  const datasource = graph.nodes.find((node) => node.id === DS_NODE_ID);
+  const datasource = findCandlesDatasource(graph);
 
   if (!datasource) {
     throw new Error(
-      `Chart block graph is missing datasource node "${DS_NODE_ID}"`,
+      "Chart block graph is missing a datasource.candles node",
     );
   }
 

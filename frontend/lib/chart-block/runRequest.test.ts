@@ -76,4 +76,35 @@ describe("buildStudioRunRequest", () => {
       end_ms: 1_700_086_400_000,
     });
   });
+
+  it("resolves datasource by kind when node id is not ds1", () => {
+    const nonDefaultId: ChartBlockSpec = {
+      ...spec,
+      data: {
+        ...spec.data,
+        graph: {
+          ...spec.data.graph,
+          nodes: [
+            {
+              id: "candles_src",
+              kind: "datasource.candles",
+              params: {
+                exchange: "bybit",
+                category: "spot",
+                symbol: "ETHUSDT",
+                interval: "1h",
+              },
+            },
+          ],
+        },
+        outputs: ["candles_src.timestamp", "candles_src.close"],
+      },
+    };
+
+    const request = buildStudioRunRequest(nonDefaultId, { limit: 100 });
+
+    expect(request.graph.nodes[0]?.id).toBe("candles_src");
+    expect(request.graph.nodes[0]?.params.limit).toBe(100);
+    expect(request.graph.nodes[0]?.params.symbol).toBe("ETHUSDT");
+  });
 });
