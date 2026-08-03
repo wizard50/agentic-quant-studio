@@ -1,0 +1,220 @@
+use axum::{
+    Json,
+    extract::{Path, Query, State},
+    http::StatusCode,
+};
+use studio::registry::builtin_registry;
+use studio::runtime::validate;
+use tracing::warn;
+
+use crate::{
+    models::studio::{
+        CreateStudyRequest, ListStudiesQuery, Study, StudyStatus, UpdateStudyRequest,
+    },
+    services::StudyStoreError,
+    state::AppState,
+};
+
+use super::studio::{log_studio_error, studio_error_status};
+
+pub async fn list_studies(
+    State(state): State<AppState>,
+    Query(query): Query<ListStudiesQuery>,
+) -> Json<Vec<Study>> {
+    let statuses = query.statuses();
+    Json(state.study_store.list(&statuses))
+}
+
+pub async fn get_study(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> Result<Json<Study>, StatusCode> {
+    state
+        .study_store
+        .get(&id)
+        .map(Json)
+        .ok_or(StatusCode::NOT_FOUND)
+}
+
+/// Create a draft study from a full graph body.
+pub async fn create_study(
+    State(state): State<AppState>,
+    Json(request): Json<CreateStudyRequest>,
+) -> Result<(StatusCode, Json<Study>), StatusCode> {
+    let registry = builtin_registry();
+    validate(&request.graph, &registry).map_err(|err| {
+        log_studio_error(&request.graph.id, &err);
+        studio_error_status(&err)
+    })?;
+
+    let study = state.study_store.create_draft(
+        request.graph,
+        request.title,
+        request.created_by,
+        request.presentation_overrides,
+    );
+
+    Ok((StatusCode::CREATED, Json(study)))
+}
+
+/// Update a draft (`graph` / title / overrides) and/or accept (`status: applied`).
+pub async fn update_study(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+    Json(request): Json<UpdateStudyRequest>,
+) -> Result<Json<Study>, StatusCode> {
+    let registry = builtin_registry();
+
+    let wants_content = request.graph.is_some()
+        || request.title.is_some()
+        || request.presentation_overrides.is_some()
+        || request.expected_version.is_some();
+    let wants_accept = matches!(request.status, Some(StudyStatus::Applied));
+
+    if !wants_content && !wants_accept {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+
+    if let Some(status) = request.status {
+        if status != StudyStatus::Applied {
+            return Err(StatusCode::BAD_REQUEST);
+        }
+    }
+
+    if wants_content {
+        let existing = state.study_store.get(&id).ok_or(StatusCode::NOT_FOUND)?;
+
+        if existing.status != StudyStatus::Draft {
+            return Err(map_store_error(StudyStoreError::InvalidStatus {
+                actual: existing.status,
+            }));
+        }
+
+        let graph = request.graph.unwrap_or_else(|| existing.graph.clone());
+        validate(&graph, &registry).map_err(|err| {
+            log_studio_error(&graph.id, &err);
+            studio_error_status(&err)
+        })?;
+
+        state
+            .study_store
+            .update_draft(
+                &id,
+                graph,
+                request.title,
+                request.presentation_overrides,
+                request.expected_version,
+            )
+            .map_err(map_store_error)?;
+    }
+
+    if wants_accept {
+        let existing = state.study_store.get(&id).ok_or(StatusCode::NOT_FOUND)?;
+
+        validate(&existing.graph, &registry).map_err(|err| {
+            log_studio_error(&existing.graph.id, &err);
+            studio_error_status(&err)
+        })?;
+
+        let study = state.study_store.accept(&id).map_err(map_store_error)?;
+        return Ok(Json(study));
+    }
+
+    state
+        .study_store
+        .get(&id)
+        .map(Json)
+        .ok_or(StatusCode::NOT_FOUND)
+}
+
+pub async fn delete_study(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> Result<StatusCode, StatusCode> {
+    state.study_store.delete(&id).map_err(map_store_error)?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+fn map_store_error(err: StudyStoreError) -> StatusCode {
+    match err {
+        StudyStoreError::NotFound => StatusCode::NOT_FOUND,
+        StudyStoreError::VersionConflict { expected, actual } => {
+            warn!(expected, actual, "Study version conflict");
+            StatusCode::CONFLICT
+        }
+        StudyStoreError::InvalidStatus { actual } => {
+            warn!(
+                status = actual.as_str(),
+                "Study operation invalid for status"
+            );
+            StatusCode::CONFLICT
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::services::StudyStore;
+    use studio::spec::{GraphKind, GraphSpec, NodeSpec};
+
+    #[test]
+    fn create_rejects_invalid_graph_without_storing() {
+        let store = StudyStore::new();
+        let graph = GraphSpec {
+            id: "bad".to_string(),
+            version: 1,
+            kind: GraphKind::Chart,
+            nodes: vec![NodeSpec {
+                id: "n1".to_string(),
+                kind: "nope.thing".to_string(),
+                params: serde_json::json!({}),
+            }],
+            edges: vec![],
+        };
+
+        assert!(validate(&graph, &builtin_registry()).is_err());
+        assert!(store.list(&[]).is_empty());
+    }
+
+    #[test]
+    fn draft_accept_roundtrip() {
+        let store = StudyStore::new();
+        let graph: GraphSpec = serde_json::from_str(GOLDEN_CROSS_JSON).unwrap();
+        validate(&graph, &builtin_registry()).unwrap();
+
+        let draft = store.create_draft(graph.clone(), None, None, None);
+        let applied = store.accept(&draft.id).unwrap();
+        assert_eq!(applied.status, StudyStatus::Applied);
+        assert_eq!(store.get(&draft.id).unwrap().graph.nodes.len(), 4);
+    }
+
+    const GOLDEN_CROSS_JSON: &str = r#"
+{
+  "id": "golden-cross-btc-1d",
+  "version": 1,
+  "kind": "chart",
+  "nodes": [
+    {
+      "id": "ds1",
+      "kind": "datasource.candles",
+      "params": {
+        "exchange": "bybit",
+        "category": "spot",
+        "symbol": "BTCUSDT",
+        "interval": "1d"
+      }
+    },
+    { "id": "sma20", "kind": "indicator.sma", "params": { "period": 20 } },
+    { "id": "sma50", "kind": "indicator.sma", "params": { "period": 50 } },
+    { "id": "cross", "kind": "logic.crossover", "params": {} }
+  ],
+  "edges": [
+    { "from": "ds1.close", "to": "sma20.input" },
+    { "from": "ds1.close", "to": "sma50.input" },
+    { "from": "sma20.value", "to": "cross.fast" },
+    { "from": "sma50.value", "to": "cross.slow" }
+  ]
+}
+"#;
+}

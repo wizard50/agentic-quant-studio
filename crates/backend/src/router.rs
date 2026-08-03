@@ -1,9 +1,9 @@
-use crate::handlers::{candles, catalog, jobs, studio};
+use crate::handlers::{candles, catalog, jobs, studies, studio};
 use crate::state::AppState;
 use axum::{
     Router,
     http::{HeaderValue, StatusCode},
-    routing::{get, post, put},
+    routing::{get, post},
 };
 use std::time::Duration;
 use tower::ServiceBuilder;
@@ -54,7 +54,13 @@ fn api_routes() -> Router<AppState> {
         .route("/studio/runs", post(studio::run_graph))
         .route("/studio/validate", post(studio::validate_graph))
         .route(
-            "/workspaces/{workspace_id}/study",
-            put(studio::apply_study).get(studio::get_study),
+            "/studies",
+            get(studies::list_studies).post(studies::create_study),
+        )
+        .route(
+            "/studies/{id}",
+            get(studies::get_study)
+                .put(studies::update_study)
+                .delete(studies::delete_study),
         )
 }

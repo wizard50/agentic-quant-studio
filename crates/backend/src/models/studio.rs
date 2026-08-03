@@ -17,28 +17,109 @@ pub struct StudioRunRequest {
     pub outputs: Vec<String>,
 }
 
-/// Applied study document for a workspace.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StudyStatus {
+    Draft,
+    Applied,
+    Archived,
+}
+
+impl StudyStatus {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Draft => "draft",
+            Self::Applied => "applied",
+            Self::Archived => "archived",
+        }
+    }
+}
+
+impl FromStr for StudyStatus {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.trim() {
+            "draft" => Ok(Self::Draft),
+            "applied" => Ok(Self::Applied),
+            "archived" => Ok(Self::Archived),
+            _ => Err(()),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StudyCreatedBy {
+    User,
+    Agent,
+}
+
+/// Flat study document (draft, applied, or archived).
 ///
-/// `version` is the **study revision** (for polling / concurrency), not
-/// `graph.version` (graph schema revision).
+/// `version` is the study revision for concurrency — not `graph.version`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StudyDocument {
-    pub workspace_id: String,
+pub struct Study {
+    pub id: String,
+    pub status: StudyStatus,
     pub version: u64,
     pub updated_at: DateTime<Utc>,
     pub graph: GraphSpec,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub created_by: Option<StudyCreatedBy>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub presentation_overrides: Option<serde_json::Value>,
 }
 
+/// Create a draft study (always `status: draft`).
 #[derive(Debug, Deserialize)]
-pub struct ApplyStudyRequest {
+pub struct CreateStudyRequest {
     pub graph: GraphSpec,
     #[serde(default)]
+    pub title: Option<String>,
+    #[serde(default)]
+    pub created_by: Option<StudyCreatedBy>,
+    #[serde(default)]
     pub presentation_overrides: Option<serde_json::Value>,
-    /// When set, apply fails with conflict if the stored study version differs.
+}
+
+/// Update a draft and/or promote it: set `status` to `applied` to accept.
+#[derive(Debug, Deserialize)]
+pub struct UpdateStudyRequest {
+    #[serde(default)]
+    pub graph: Option<GraphSpec>,
+    #[serde(default)]
+    pub title: Option<String>,
+    #[serde(default)]
+    pub presentation_overrides: Option<serde_json::Value>,
     #[serde(default)]
     pub expected_version: Option<u64>,
+    /// Set to `applied` to accept this draft (archives the previous applied study).
+    #[serde(default)]
+    pub status: Option<StudyStatus>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+pub struct ListStudiesQuery {
+    /// Comma-separated statuses, e.g. `draft,applied`. Default: draft+applied (not archived).
+    pub status: Option<String>,
+}
+
+impl ListStudiesQuery {
+    pub fn statuses(&self) -> Vec<StudyStatus> {
+        match &self.status {
+            None => vec![StudyStatus::Draft, StudyStatus::Applied],
+            Some(raw) if raw.trim().is_empty() => {
+                vec![StudyStatus::Draft, StudyStatus::Applied]
+            }
+            Some(raw) => raw
+                .split(',')
+                .filter_map(|part| StudyStatus::from_str(part).ok())
+                .collect(),
+        }
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -166,8 +247,8 @@ mod tests {
     }
 
     #[test]
-    fn apply_study_request_deserializes_optional_fields() {
-        let body: ApplyStudyRequest = serde_json::from_str(
+    fn create_study_request_deserializes_optional_fields() {
+        let body: CreateStudyRequest = serde_json::from_str(
             r#"{
             "graph": {
               "id": "ds-sma",
@@ -180,15 +261,23 @@ mod tests {
         )
         .unwrap();
 
-        assert!(body.presentation_overrides.is_none());
-        assert!(body.expected_version.is_none());
+        assert!(body.title.is_none());
+        assert!(body.created_by.is_none());
         assert_eq!(body.graph.id, "ds-sma");
     }
 
     #[test]
-    fn study_document_serde_roundtrip() {
-        let doc = StudyDocument {
-            workspace_id: "ws-1".to_string(),
+    fn update_study_request_status_only() {
+        let body: UpdateStudyRequest = serde_json::from_str(r#"{ "status": "applied" }"#).unwrap();
+        assert_eq!(body.status, Some(StudyStatus::Applied));
+        assert!(body.graph.is_none());
+    }
+
+    #[test]
+    fn study_serde_roundtrip() {
+        let study = Study {
+            id: "s1".to_string(),
+            status: StudyStatus::Draft,
             version: 2,
             updated_at: Utc::now(),
             graph: GraphSpec {
@@ -198,15 +287,35 @@ mod tests {
                 nodes: vec![],
                 edges: vec![],
             },
+            title: Some("Demo".to_string()),
+            created_by: Some(StudyCreatedBy::Agent),
             presentation_overrides: Some(serde_json::json!({ "pane": "main" })),
         };
 
-        let json = serde_json::to_string(&doc).unwrap();
-        let restored: StudyDocument = serde_json::from_str(&json).unwrap();
-        assert_eq!(restored.workspace_id, doc.workspace_id);
-        assert_eq!(restored.version, doc.version);
-        assert_eq!(restored.graph.id, doc.graph.id);
-        assert_eq!(restored.presentation_overrides, doc.presentation_overrides);
+        let json = serde_json::to_string(&study).unwrap();
+        let restored: Study = serde_json::from_str(&json).unwrap();
+        assert_eq!(restored.id, study.id);
+        assert_eq!(restored.status, StudyStatus::Draft);
+        assert_eq!(restored.version, study.version);
+        assert_eq!(restored.graph.id, study.graph.id);
+        assert_eq!(restored.created_by, Some(StudyCreatedBy::Agent));
+    }
+
+    #[test]
+    fn list_query_default_statuses() {
+        let q = ListStudiesQuery::default();
+        assert_eq!(q.statuses(), vec![StudyStatus::Draft, StudyStatus::Applied]);
+    }
+
+    #[test]
+    fn list_query_parses_status_filter() {
+        let q = ListStudiesQuery {
+            status: Some("draft,archived".to_string()),
+        };
+        assert_eq!(
+            q.statuses(),
+            vec![StudyStatus::Draft, StudyStatus::Archived]
+        );
     }
 
     #[test]
