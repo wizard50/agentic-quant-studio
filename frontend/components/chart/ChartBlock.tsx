@@ -17,14 +17,22 @@ export interface ChartBlockProps extends UseChartBlockDataParams {
 
 export function ChartBlock({ className, ...params }: ChartBlockProps) {
   const chartLayers = useChartLayersStore((state) => state.layers);
-  const { spec, datafeedRef, chartReady, status, error, mainChartRef } =
-    useChartBlockData(params);
+  const {
+    spec,
+    datafeedRef,
+    chartReady,
+    status,
+    error,
+    mainChartRef,
+    studyMode,
+  } = useChartBlockData(params);
 
   const { containerRef, containerHeight } = useChartBlockPane({
     panes: spec.panes,
     datafeedRef,
     chartReady,
     mainChartRef,
+    studyMode,
   });
 
   const legendTops = useMemo(
@@ -58,7 +66,7 @@ export function ChartBlock({ className, ...params }: ChartBlockProps) {
           aria-label="Chart block"
         />
 
-        {containerHeight > 0 ? (
+        {containerHeight > 0 && !studyMode ? (
           <div className="pointer-events-none absolute inset-0 z-5">
             {spec.panes.map((pane) => {
               if (!paneHasLegendLayers(pane, chartLayers)) {

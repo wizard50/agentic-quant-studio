@@ -23,12 +23,23 @@ export type {
   MarketSeriesStyle,
 } from "./layers";
 export { buildChartBlockSpecFromLayers } from "./buildChartBlockSpec";
+export { buildChartBlockSpecFromStudy } from "./buildChartBlockSpecFromStudy";
+export {
+  CANDLES_DATASOURCE_KIND,
+  datasourcePorts,
+  findCandlesDatasource,
+  marketDataKeyFromGraph,
+  resolveDatasourceNodeId,
+} from "./datasource";
 export {
   buildHistogramSeriesOptionsFromLayer,
   paneIndexForLayer,
 } from "./layerSeries";
 export { studioResponseToCandles } from "./parseCandles";
-export { parseLineLayerData } from "./parseLineLayer";
+export {
+  parseLineLayerData,
+  parseLineLayerDataFromPorts,
+} from "./parseLineLayer";
 export { buildStudioRunRequest } from "./runRequest";
 export type { ViewportRange } from "./runRequest";
 export { maxWarmupBarsFromLayers } from "./warmup";

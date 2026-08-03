@@ -1,6 +1,7 @@
 import {
   buildStudioRunRequest,
   deriveOutputs,
+  resolveDatasourceNodeId,
   studioResponseToCandles,
   type ChartBlockSpec,
 } from "@/lib/chart-block";
@@ -236,7 +237,12 @@ export class Datafeed {
   }
 
   private parseCandles(response: StudioRunResponse): Candle[] {
+    const dsNodeId = this.spec
+      ? resolveDatasourceNodeId(this.spec.data.graph)
+      : undefined;
+
     return studioResponseToCandles(response, {
+      dsNodeId,
       requestedOutputs: this.spec ? deriveOutputs(this.spec) : [],
     });
   }
