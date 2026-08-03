@@ -1,6 +1,6 @@
 # Backend
 
-Axum HTTP API for candles, catalogs, studio graph runs, and background jobs. Default listen address: `127.0.0.1:3000` (`config/defaults.toml`).
+Axum HTTP API for candles, catalogs, studio graph runs, studies, and background jobs. Default listen address: `127.0.0.1:3000` (`config/defaults.toml`).
 
 ## Run
 
@@ -33,12 +33,15 @@ Base path: `/api/v1`. The Next.js frontend proxies these as `/api/backend/v1/...
 | POST | `/catalog/candles/refresh` | Background catalog rescan (202, not a job) |
 | POST | `/studio/runs` | Execute a graph — `{ graph, outputs }` → port values + `meta` |
 | POST | `/studio/validate` | Validate a graph only — `{ graph }` → `{ ok: true }` (no execute/persist) |
-| PUT | `/workspaces/{workspace_id}/study` | Apply study — validate-on-write `{ graph, presentation_overrides?, expected_version? }` |
-| GET | `/workspaces/{workspace_id}/study` | Latest applied study for workspace — **404** if none |
+| GET | `/studies` | List studies — `?status=draft,applied` (default: draft+applied; include `archived` via query) |
+| POST | `/studies` | Create **draft** — `{ graph, title?, created_by?, presentation_overrides? }` → **201** |
+| GET | `/studies/{id}` | Get one study — **404** if missing |
+| PUT | `/studies/{id}` | Update **draft** (`graph` / title / overrides / `expected_version`) and/or accept (`status: "applied"`) |
+| DELETE | `/studies/{id}` | Delete draft or archived — **409** if applied |
 
 Job statuses: `pending`, `running`, `completed`, `failed`, `cancelled`.
 
-**Studies** are in-memory only (lost on restart), one document per `workspace_id`. `StudyDocument.version` is the study revision for polling/concurrency — not `graph.version` (graph schema).
+**Studies** are a flat in-memory registry (lost on restart). Statuses: `draft`, `applied`, `archived`. At most one `applied` study. `Study.version` is the study revision for concurrency — not `graph.version`. To derive a new draft from an existing study, `GET` it and `POST /studies` with the graph (no server-side fork).
 
 ### Examples
 
@@ -60,13 +63,18 @@ curl -X POST http://127.0.0.1:3000/api/v1/jobs \
 # Active ingestion jobs
 curl -s "http://127.0.0.1:3000/api/v1/jobs?active=true&kind=ingest_candles" | jq
 
-# Apply a study (validate-on-write)
-curl -s -X PUT http://127.0.0.1:3000/api/v1/workspaces/demo/study \
+# Create a study draft (agent path)
+curl -s -X POST http://127.0.0.1:3000/api/v1/studies \
   -H "Content-Type: application/json" \
-  -d '{"graph":{"id":"g1","version":1,"kind":"chart","nodes":[],"edges":[]}}' | jq
+  -d '{"graph":{"id":"g1","version":1,"kind":"chart","nodes":[],"edges":[]},"created_by":"agent","title":"demo"}' | jq
 
-# Load study
-curl -s http://127.0.0.1:3000/api/v1/workspaces/demo/study | jq
+# List drafts + applied
+curl -s http://127.0.0.1:3000/api/v1/studies | jq
+
+# Accept draft as applied
+curl -s -X PUT http://127.0.0.1:3000/api/v1/studies/STUDY_ID \
+  -H "Content-Type: application/json" \
+  -d '{"status":"applied"}' | jq
 ```
 
 Studio run requests are documented in [`../studio/README.md`](../studio/README.md).
@@ -94,7 +102,7 @@ Generic job system in `src/jobs/` — not candle-specific routes.
 
 ```
 src/
-  handlers/     # candles, catalog, jobs, studio
+  handlers/     # candles, catalog, jobs, studio, studies
   jobs/         # queue, worker, types, processors
   services/     # candle_service, studio_candles, study_store
   models/       # API request/response types
