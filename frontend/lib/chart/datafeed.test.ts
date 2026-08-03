@@ -161,6 +161,26 @@ describe("Datafeed", () => {
     expect(request.graph.nodes[0]?.params.limit).toBe(23);
   });
 
+  it("trims warmup bars from the display cache but keeps full response", async () => {
+    // 5 bars returned for displayLimit 3 + warmup 2
+    runStudioGraphMock.mockResolvedValueOnce(
+      makeResponse([1_000, 2_000, 3_000, 4_000, 5_000]),
+    );
+
+    const feed = new Datafeed();
+    feed.configure(spec, 2);
+    feed.reset(key);
+    await feed.loadInitial(3);
+
+    expect(feed.getCandleCount()).toBe(3);
+    expect(feed.getOldestTimestamp()).toBe(3_000);
+    expect(feed.getNewestTimestamp()).toBe(5_000);
+    // Full series still available for indicator alignment
+    expect(feed.getLastResponse()?.meta.length ?? 5).toBeTruthy();
+    const values = feed.getLastResponse()?.outputs["ds1.close"]?.values;
+    expect(values).toHaveLength(5);
+  });
+
   it("refetches with warmup padding when refreshing an existing window", async () => {
     runStudioGraphMock
       .mockResolvedValueOnce(makeResponse([2_000, 3_000, 4_000]))

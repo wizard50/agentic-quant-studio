@@ -8,6 +8,7 @@ import {
   buildChartBlockSpecFromLayers,
   buildChartBlockSpecFromStudy,
   marketDataKeyFromGraph,
+  maxWarmupBarsFromGraph,
   maxWarmupBarsFromLayers,
 } from "@/lib/chart-block";
 import type { ChartBlockSpec } from "@/lib/chart-block";
@@ -57,10 +58,12 @@ export function useChartBlockData({
     return { exchange, category, symbol, interval };
   }, [study, exchange, category, symbol, interval]);
 
-  const warmupBars = useMemo(
-    () => (studyMode ? 0 : maxWarmupBarsFromLayers(layers)),
-    [layers, studyMode],
-  );
+  const warmupBars = useMemo(() => {
+    if (study) {
+      return maxWarmupBarsFromGraph(study.graph);
+    }
+    return maxWarmupBarsFromLayers(layers);
+  }, [study, layers]);
 
   const spec = useMemo(() => {
     if (study) {
@@ -82,6 +85,7 @@ export function useChartBlockData({
 
   const datafeedRef = useRef(new Datafeed());
   const lastLoadedMarketDataKeyRef = useRef<string | null>(null);
+  const lastStudyModeRef = useRef(studyMode);
   const mainChartRef = useRef<IChartApi | null>(null);
 
   const [status, setStatus] = useState<ChartStatus>("idle");
@@ -95,6 +99,18 @@ export function useChartBlockData({
     datafeedRef.current.configure(spec, warmupBars);
   }, [spec, warmupBars]);
 
+  // Subscribe before reload effect so "loading" events from loadInitial/refresh are received.
+  useEffect(() => {
+    const feed = datafeedRef.current;
+
+    return feed.subscribe((event) => {
+      if (event.type === "loading") {
+        setStatus("loading");
+        setError(null);
+      }
+    });
+  }, []);
+
   useEffect(() => {
     if (!marketDataKey.symbol) {
       return;
@@ -102,15 +118,25 @@ export function useChartBlockData({
 
     const feed = datafeedRef.current;
     const marketDataKeyToken = JSON.stringify(marketDataKey);
-    const hadDataForMarket =
+    const sameMarket =
       feed.getCandleCount() > 0 &&
       lastLoadedMarketDataKeyRef.current === marketDataKeyToken;
+    const studyModeChanged = lastStudyModeRef.current !== studyMode;
+    lastStudyModeRef.current = studyMode;
+
+    // Hard-reset when:
+    // - in study mode (any study graph change)
+    // - switching between study and layers (avoid stale candles behind loading)
+    // - market key changed
+    // Soft refresh only for layers-only indicator edits on the same market.
+    const hardReload = studyMode || studyModeChanged || !sameMarket;
 
     let cancelled = false;
 
-    const reload = hadDataForMarket
-      ? feed.refresh()
-      : (feed.reset(marketDataKey), feed.loadInitial());
+    // Status updates: "loading" via datafeed events; ready/error only in async callbacks.
+    const reload = hardReload
+      ? (feed.reset(marketDataKey), feed.loadInitial())
+      : feed.refresh();
 
     reload.then(
       () => {
@@ -131,18 +157,7 @@ export function useChartBlockData({
     return () => {
       cancelled = true;
     };
-  }, [marketDataKey, runKey]);
-
-  useEffect(() => {
-    const feed = datafeedRef.current;
-
-    return feed.subscribe((event) => {
-      if (event.type === "loading") {
-        setStatus("loading");
-        setError(null);
-      }
-    });
-  }, []);
+  }, [marketDataKey, runKey, studyMode]);
 
   return {
     spec,

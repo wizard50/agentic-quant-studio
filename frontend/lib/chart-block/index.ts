@@ -42,7 +42,7 @@ export {
 } from "./parseLineLayer";
 export { buildStudioRunRequest } from "./runRequest";
 export type { ViewportRange } from "./runRequest";
-export { maxWarmupBarsFromLayers } from "./warmup";
+export { maxWarmupBarsFromGraph, maxWarmupBarsFromLayers } from "./warmup";
 export { deriveOutputs, deriveOutputsFromPanes } from "./deriveOutputs";
 export {
   applyPaneLayoutToChart,
