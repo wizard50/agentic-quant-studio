@@ -17,9 +17,10 @@ A workspace for building agentic AI systems in quantitative finance and Web3.
 This repo is an **early-stage data platform**, not yet an agentic workspace. There is no chat, no RAG, no backtesting engine, and no on-chain integration in the codebase. What works end-to-end today:
 
 - **Warehouse** — Hive-partitioned Parquet, catalog scan, read/resample ([`crates/warehouse/README.md`](crates/warehouse/README.md))
-- **Backend** — Axum API, jobs, catalogs ([`crates/backend/README.md`](crates/backend/README.md))
+- **Backend** — Axum API, jobs, catalogs, studies ([`crates/backend/README.md`](crates/backend/README.md))
 - **Frontend** — Market Research + Data Management ([`frontend/README.md`](frontend/README.md))
 - **Studio** — `GraphSpec` + runtime + indicator catalog ([`crates/studio/README.md`](crates/studio/README.md))
+- **MCP server** — stdio tools for external agents over the backend API ([`crates/mcp-server/README.md`](crates/mcp-server/README.md))
 
 The name reflects the **long-term vision** (see [Vision](#vision)); the implementation is focused on reliable market data, chart UX, and the graph spec foundation for indicators and strategies.
 
