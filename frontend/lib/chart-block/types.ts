@@ -11,6 +11,12 @@ export interface LayerStyleSpec {
   lineWidth?: 1 | 2 | 3 | 4;
 }
 
+/** Fixed price scale range (from catalog chart_defaults.value_range). */
+export interface LayerValueRange {
+  min: number;
+  max: number;
+}
+
 export interface LayerSpec {
   id: string;
   label?: string;
@@ -18,6 +24,8 @@ export interface LayerSpec {
   ports: Record<string, string>;
   style?: LayerStyleSpec;
   visible?: boolean;
+  /** When set, renderer uses a fixed autoscale range (e.g. RSI 0–100). */
+  value_range?: LayerValueRange;
 }
 
 export interface PaneSpec {

@@ -24,6 +24,7 @@ export type {
 } from "./layers";
 export { buildChartBlockSpecFromLayers } from "./buildChartBlockSpec";
 export { buildChartBlockSpecFromStudy } from "./buildChartBlockSpecFromStudy";
+export { compilePresentation } from "./compilePresentation";
 export {
   CANDLES_DATASOURCE_KIND,
   datasourcePorts,
@@ -68,6 +69,7 @@ export type {
   ChartBlockSpec,
   LayerSpec,
   LayerStyleSpec,
+  LayerValueRange,
   LayerVisual,
   PaneHeight,
   PaneRole,

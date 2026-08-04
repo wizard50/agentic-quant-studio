@@ -32,7 +32,7 @@ const GOLDEN_CROSS: GraphSpec = {
 };
 
 describe("buildChartBlockSpecFromStudy", () => {
-  it("builds main pane with candles and indicator lines; skips logic", () => {
+  it("delegates to compilePresentation (overlays on main; skips logic)", () => {
     const spec = buildChartBlockSpecFromStudy(GOLDEN_CROSS);
 
     expect(spec.panes).toHaveLength(1);
