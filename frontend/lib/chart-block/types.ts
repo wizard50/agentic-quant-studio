@@ -1,6 +1,14 @@
 import type { GraphSpec } from "@/lib/studio/types";
 
-export type LayerVisual = "candlestick" | "bar" | "histogram" | "line" | "area";
+export type LayerVisual =
+  | "candlestick"
+  | "bar"
+  | "histogram"
+  | "line"
+  | "area"
+  | "markers";
+
+export type MarkerShape = "arrowUp" | "arrowDown" | "circle" | "square";
 
 export type PaneHeight = "flex" | number;
 
@@ -9,6 +17,8 @@ export type PaneRole = "main" | "subchart";
 export interface LayerStyleSpec {
   color?: string;
   lineWidth?: 1 | 2 | 3 | 4;
+  /** Used when visual is "markers". */
+  markerShape?: MarkerShape;
 }
 
 /** Fixed price scale range (from catalog chart_defaults.value_range). */

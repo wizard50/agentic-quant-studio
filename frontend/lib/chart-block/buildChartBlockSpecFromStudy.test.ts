@@ -32,7 +32,7 @@ const GOLDEN_CROSS: GraphSpec = {
 };
 
 describe("buildChartBlockSpecFromStudy", () => {
-  it("delegates to compilePresentation (overlays on main; skips logic)", () => {
+  it("delegates to compilePresentation (overlays + logic markers on main)", () => {
     const spec = buildChartBlockSpecFromStudy(GOLDEN_CROSS);
 
     expect(spec.panes).toHaveLength(1);
@@ -41,6 +41,7 @@ describe("buildChartBlockSpecFromStudy", () => {
       MARKET_LAYER_ID,
       "sma20",
       "sma50",
+      "cross",
     ]);
 
     const candles = spec.panes[0]?.layers[0];
@@ -54,11 +55,15 @@ describe("buildChartBlockSpecFromStudy", () => {
     expect(sma20?.ports.time).toBe("candles_src.timestamp");
     expect(sma20?.style?.color).toBeDefined();
 
+    const cross = spec.panes[0]?.layers[3];
+    expect(cross?.visual).toBe("markers");
+    expect(cross?.ports.signal).toBe("cross.signal");
+
     expect(spec.data.graph).toBe(GOLDEN_CROSS);
     expect(spec.data.outputs).toContain("candles_src.close");
     expect(spec.data.outputs).toContain("sma20.value");
     expect(spec.data.outputs).toContain("sma50.value");
-    expect(spec.data.outputs).not.toContain("cross.signal");
+    expect(spec.data.outputs).toContain("cross.signal");
   });
 
   it("throws when graph has no candles datasource", () => {

@@ -24,7 +24,12 @@ export type {
 } from "./layers";
 export { buildChartBlockSpecFromLayers } from "./buildChartBlockSpec";
 export { buildChartBlockSpecFromStudy } from "./buildChartBlockSpecFromStudy";
-export { compilePresentation } from "./compilePresentation";
+export {
+  compilePresentation,
+  preferContextPane,
+  resolvePaneFromConsumerPeers,
+  resolvePaneFromInputs,
+} from "./compilePresentation";
 export {
   CANDLES_DATASOURCE_KIND,
   datasourcePorts,
@@ -41,6 +46,7 @@ export {
   parseLineLayerData,
   parseLineLayerDataFromPorts,
 } from "./parseLineLayer";
+export { parseMarkerLayerData } from "./parseMarkerLayer";
 export { buildStudioRunRequest } from "./runRequest";
 export type { ViewportRange } from "./runRequest";
 export { maxWarmupBarsFromGraph, maxWarmupBarsFromLayers } from "./warmup";
@@ -71,6 +77,7 @@ export type {
   LayerStyleSpec,
   LayerValueRange,
   LayerVisual,
+  MarkerShape,
   PaneHeight,
   PaneRole,
   PaneSpec,

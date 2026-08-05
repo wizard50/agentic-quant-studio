@@ -126,3 +126,14 @@ export function parseSeriesF64(
 
   return value.values as (number | null)[];
 }
+
+export function parseSeriesBool(
+  value: StudioSeriesValue | undefined,
+  port: string,
+): (boolean | null)[] {
+  if (!value || value.kind !== "series_bool" || !value.values) {
+    throw new Error(`Expected series_bool for ${port}`);
+  }
+
+  return value.values as (boolean | null)[];
+}
