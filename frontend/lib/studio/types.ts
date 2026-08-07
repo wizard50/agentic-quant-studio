@@ -1,3 +1,7 @@
+import type { PresentationSpec } from "@/lib/chart-block/types";
+
+export type { PresentationSpec };
+
 export interface GraphSpec {
   id: string;
   version: number;
@@ -42,6 +46,7 @@ export type StudyStatus = "draft" | "applied" | "archived";
 
 export type StudyCreatedBy = "user" | "agent";
 
+
 /** Flat study from GET/POST/PUT /studies. */
 export interface Study {
   id: string;
@@ -50,12 +55,8 @@ export interface Study {
   version: number;
   updated_at: string;
   graph: GraphSpec;
-  /** Derived by backend compile_presentation (panes + outputs). */
-  presentation?: {
-    version: number;
-    panes: unknown[];
-    outputs: string[];
-  };
+  /** Derived by backend compile_presentation (always set on create/update). */
+  presentation: PresentationSpec;
   title?: string;
   created_by?: StudyCreatedBy;
   presentation_overrides?: unknown;
@@ -63,12 +64,6 @@ export interface Study {
 
 export interface CreateStudyRequest {
   graph: GraphSpec;
-  /** Derived by backend compile_presentation (panes + outputs). */
-  presentation?: {
-    version: number;
-    panes: unknown[];
-    outputs: string[];
-  };
   title?: string;
   created_by?: StudyCreatedBy;
   presentation_overrides?: unknown;

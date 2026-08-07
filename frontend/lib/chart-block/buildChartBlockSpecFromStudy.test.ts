@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { GraphSpec } from "@/lib/studio/types";
 import { buildChartBlockSpecFromStudy } from "./buildChartBlockSpecFromStudy";
+import type { PresentationSpec } from "./types";
 import { MAIN_PANE_ID } from "./constants";
 import { MARKET_LAYER_ID } from "./layers";
 
@@ -31,47 +32,97 @@ const GOLDEN_CROSS: GraphSpec = {
   ],
 };
 
-describe("buildChartBlockSpecFromStudy", () => {
-  it("builds main pane with candles and indicator lines; skips logic", () => {
-    const spec = buildChartBlockSpecFromStudy(GOLDEN_CROSS);
+const GOLDEN_CROSS_PRESENTATION: PresentationSpec = {
+  version: 1,
+  panes: [
+    {
+      id: MAIN_PANE_ID,
+      role: "main",
+      height: "flex",
+      layers: [
+        {
+          id: MARKET_LAYER_ID,
+          visual: "candlestick",
+          ports: {
+            time: "candles_src.timestamp",
+            open: "candles_src.open",
+            high: "candles_src.high",
+            low: "candles_src.low",
+            close: "candles_src.close",
+          },
+          visible: true,
+        },
+        {
+          id: "sma20",
+          visual: "line",
+          ports: {
+            time: "candles_src.timestamp",
+            value: "sma20.value",
+          },
+          style: { color: "#f59e0b", lineWidth: 2 },
+          visible: true,
+        },
+        {
+          id: "sma50",
+          visual: "line",
+          ports: {
+            time: "candles_src.timestamp",
+            value: "sma50.value",
+          },
+          style: { color: "#3b82f6", lineWidth: 2 },
+          visible: true,
+        },
+        {
+          id: "cross",
+          visual: "markers",
+          ports: {
+            time: "candles_src.timestamp",
+            signal: "cross.signal",
+          },
+          style: { color: "#22c55e", markerShape: "arrowUp" },
+          visible: true,
+        },
+      ],
+    },
+  ],
+  outputs: [
+    "candles_src.close",
+    "candles_src.high",
+    "candles_src.low",
+    "candles_src.open",
+    "candles_src.timestamp",
+    "cross.signal",
+    "sma20.value",
+    "sma50.value",
+  ],
+};
 
-    expect(spec.panes).toHaveLength(1);
-    expect(spec.panes[0]?.id).toBe(MAIN_PANE_ID);
-    expect(spec.panes[0]?.layers.map((layer) => layer.id)).toEqual([
+describe("buildChartBlockSpecFromStudy", () => {
+  it("pairs graph with backend presentation without recompiling", () => {
+    const spec = buildChartBlockSpecFromStudy(
+      GOLDEN_CROSS,
+      GOLDEN_CROSS_PRESENTATION,
+    );
+
+    expect(spec.version).toBe(1);
+    expect(spec.panes).toBe(GOLDEN_CROSS_PRESENTATION.panes);
+    expect(spec.data.graph).toBe(GOLDEN_CROSS);
+    expect(spec.data.outputs).toBe(GOLDEN_CROSS_PRESENTATION.outputs);
+    expect(spec.panes[0]?.layers.map((l) => l.id)).toEqual([
       MARKET_LAYER_ID,
       "sma20",
       "sma50",
+      "cross",
     ]);
-
-    const candles = spec.panes[0]?.layers[0];
-    expect(candles?.visual).toBe("candlestick");
-    expect(candles?.ports.time).toBe("candles_src.timestamp");
-    expect(candles?.ports.close).toBe("candles_src.close");
-
-    const sma20 = spec.panes[0]?.layers[1];
-    expect(sma20?.visual).toBe("line");
-    expect(sma20?.ports.value).toBe("sma20.value");
-    expect(sma20?.ports.time).toBe("candles_src.timestamp");
-    expect(sma20?.style?.color).toBeDefined();
-
-    expect(spec.data.graph).toBe(GOLDEN_CROSS);
-    expect(spec.data.outputs).toContain("candles_src.close");
-    expect(spec.data.outputs).toContain("sma20.value");
-    expect(spec.data.outputs).toContain("sma50.value");
-    expect(spec.data.outputs).not.toContain("cross.signal");
+    expect(spec.data.outputs).toContain("cross.signal");
   });
 
-  it("throws when graph has no candles datasource", () => {
-    const graph: GraphSpec = {
-      id: "empty",
-      version: 1,
-      kind: "chart",
-      nodes: [{ id: "sma20", kind: "indicator.sma", params: { period: 20 } }],
-      edges: [],
-    };
-
-    expect(() => buildChartBlockSpecFromStudy(graph)).toThrow(
-      /datasource\.candles/,
+  it("uses study id as block id when provided", () => {
+    const spec = buildChartBlockSpecFromStudy(
+      GOLDEN_CROSS,
+      GOLDEN_CROSS_PRESENTATION,
+      "study-abc",
     );
+    expect(spec.id).toBe("study-abc");
   });
 });

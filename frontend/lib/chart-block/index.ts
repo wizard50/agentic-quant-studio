@@ -40,6 +40,7 @@ export {
   parseLineLayerData,
   parseLineLayerDataFromPorts,
 } from "./parseLineLayer";
+export { parseMarkerLayerData } from "./parseMarkerLayer";
 export { buildStudioRunRequest } from "./runRequest";
 export type { ViewportRange } from "./runRequest";
 export { maxWarmupBarsFromGraph, maxWarmupBarsFromLayers } from "./warmup";
@@ -68,8 +69,11 @@ export type {
   ChartBlockSpec,
   LayerSpec,
   LayerStyleSpec,
+  LayerValueRange,
   LayerVisual,
+  MarkerShape,
   PaneHeight,
   PaneRole,
   PaneSpec,
+  PresentationSpec,
 } from "./types";
