@@ -51,6 +51,9 @@ pub enum Error {
 
     #[error("node_id and port_name must not contain '.'")]
     ContainsDot,
+
+    #[error("study graph is missing a datasource.candles node")]
+    MissingCandlesDatasource,
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

@@ -103,7 +103,7 @@ curl -s -X POST http://127.0.0.1:3000/api/v1/studio/runs \
 
 ### ChartDefaults
 
-Indicator nodes may attach `chart_defaults` on `NodeMeta` to describe how the frontend should place and scale a series:
+Indicator nodes may attach `chart_defaults` on `NodeMeta` to describe how the presentation compiler places and scales a series:
 
 | Field | Description |
 |-------|-------------|
@@ -131,6 +131,30 @@ Example catalog entry shape:
   }
 }
 ```
+
+
+## Presentation compiler
+
+`compile_presentation(graph, registry)` derives a **`PresentationSpec`** (panes, layers, outputs) from a pure `GraphSpec` and registry `chart_defaults`. Agents and studies author only the graph; layout is computed.
+
+| Rule | Behavior |
+|------|----------|
+| `datasource.candles` | Candlestick layer on main (`id: candles`) |
+| `indicator.*` | `overlay` → main; `subchart` → own pane (`id` = node id); unknown kinds → overlay |
+| `literal.number` | Line on consumer-peer context pane; orphans (no outgoing edges) skipped |
+| `logic.*` | Markers on input-context pane |
+
+`PresentationSpec` does **not** embed the graph (callers already hold `GraphSpec`). `outputs` is the sorted unique set of layer port refs for `POST /studio/runs`.
+
+```rust
+use studio::{presentation::compile_presentation, registry::builtin_registry};
+
+let registry = builtin_registry();
+let presentation = compile_presentation(&graph, &registry)?;
+// presentation.panes, presentation.outputs
+```
+
+UI editor metadata (node positions, labels) remains a future **`GraphExtSpec`** — separate from chart presentation.
 
 ## Built-in nodes
 
@@ -177,6 +201,7 @@ Datasource into SMA:
 src/
   spec/          # GraphSpec, NodeSpec, Edge, PortRef
   catalog.rs     # IndicatorCatalog (from registry metadata)
+  presentation/  # PresentationSpec + compile_presentation
   error.rs       # graph/runtime errors
   registry.rs    # NodeRegistry, builtin_registry()
   runtime/

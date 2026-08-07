@@ -80,7 +80,8 @@ pub(crate) fn studio_error_status(err: &Error) -> StatusCode {
         | Error::CycleDetected
         | Error::PortTypeMismatch { .. }
         | Error::TypeMismatch { .. }
-        | Error::Indicator(_) => StatusCode::UNPROCESSABLE_ENTITY,
+        | Error::Indicator(_)
+        | Error::MissingCandlesDatasource => StatusCode::UNPROCESSABLE_ENTITY,
         Error::DataSource(_) => StatusCode::INTERNAL_SERVER_ERROR,
     }
 }
