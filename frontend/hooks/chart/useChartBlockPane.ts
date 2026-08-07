@@ -18,6 +18,7 @@ import { useBlockNativeLayers } from "./useBlockNativeLayers";
 import { useChartHistoryScroll } from "./useChartHistoryScroll";
 import { useChartResize } from "./useChartResize";
 import { useLineLayerSeries } from "./useLineLayerSeries";
+import { useMarkerLayers } from "./useMarkerLayers";
 import { usePortLineSeries } from "./usePortLineSeries";
 
 export interface UseChartBlockPaneParams {
@@ -136,6 +137,16 @@ export function useChartBlockPane({
 
   usePortLineSeries({
     chartRef: mainChartRef,
+    datafeedRef,
+    chartReady,
+    panes,
+    layoutKey,
+    enabled: studyMode,
+  });
+
+  useMarkerLayers({
+    chartRef: mainChartRef,
+    seriesRef,
     datafeedRef,
     chartReady,
     panes,

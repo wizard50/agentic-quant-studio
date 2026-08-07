@@ -8,3 +8,4 @@ export type { UseChartBlockPaneParams } from "./useChartBlockPane";
 export { useLineLayerSeries } from "./useLineLayerSeries";
 export { useChartHistoryScroll } from "./useChartHistoryScroll";
 export { useChartResize } from "./useChartResize";
+export { useMarkerLayers } from "./useMarkerLayers";

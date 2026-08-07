@@ -22,6 +22,11 @@ const sampleStudy: Study = {
     nodes: [],
     edges: [],
   },
+  presentation: {
+    version: 1,
+    panes: [],
+    outputs: [],
+  },
   title: "demo",
   created_by: "agent",
 };

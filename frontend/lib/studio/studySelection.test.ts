@@ -13,6 +13,7 @@ function study(
     version: 1,
     updated_at: "2026-01-01T00:00:00Z",
     graph: { id: "g", version: 1, kind: "chart", nodes: [], edges: [] },
+    presentation: { version: 1, panes: [], outputs: [] },
     ...partial,
   };
 }

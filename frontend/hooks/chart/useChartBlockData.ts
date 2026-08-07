@@ -20,7 +20,7 @@ export interface UseChartBlockDataParams {
   category: string;
   symbol: string;
   interval: string;
-  /** When set, drives ChartBlockSpec from the study graph (presentation v0). */
+  /** When set, drives ChartBlockSpec from study.graph + study.presentation. */
   study?: Study | null;
 }
 
@@ -67,7 +67,11 @@ export function useChartBlockData({
 
   const spec = useMemo(() => {
     if (study) {
-      return buildChartBlockSpecFromStudy(study.graph);
+      return buildChartBlockSpecFromStudy(
+        study.graph,
+        study.presentation,
+        study.id,
+      );
     }
 
     return buildChartBlockSpecFromLayers(marketDataKey, layers);

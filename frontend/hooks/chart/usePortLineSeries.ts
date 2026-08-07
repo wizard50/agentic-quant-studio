@@ -37,6 +37,39 @@ function lineLayersFromPanes(panes: PaneSpec[]): LayerSpec[] {
   );
 }
 
+function lineSeriesOptionsFromLayer(layer: LayerSpec) {
+  const options: {
+    color: string;
+    lineWidth: LineWidth;
+    title: string;
+    visible?: boolean;
+    priceFormat?: { type: "price"; precision: number; minMove: number };
+    autoscaleInfoProvider?: () => {
+      priceRange: { minValue: number; maxValue: number };
+    } | null;
+  } = {
+    color: layer.style?.color ?? "#f59e0b",
+    lineWidth: (layer.style?.lineWidth ?? 2) as LineWidth,
+    title: layer.label ?? layer.id,
+  };
+
+  if (layer.value_range) {
+    options.priceFormat = {
+      type: "price",
+      precision: 2,
+      minMove: 0.01,
+    };
+    options.autoscaleInfoProvider = () => ({
+      priceRange: {
+        minValue: layer.value_range!.min,
+        maxValue: layer.value_range!.max,
+      },
+    });
+  }
+
+  return options;
+}
+
 export function usePortLineSeries({
   chartRef,
   datafeedRef,
@@ -78,11 +111,7 @@ export function usePortLineSeries({
       let series = seriesByIdRef.current.get(layer.id);
       if (!series) {
         const paneIndex = paneIndexForLayer(panes, layer.id);
-        const options = {
-          color: layer.style?.color ?? "#f59e0b",
-          lineWidth: (layer.style?.lineWidth ?? 2) as LineWidth,
-          title: layer.label ?? layer.id,
-        };
+        const options = lineSeriesOptionsFromLayer(layer);
         series =
           paneIndex <= 0
             ? chart.addSeries(LineSeries, options)
@@ -139,8 +168,7 @@ export function usePortLineSeries({
 
         series.setData(extractValuedLinePoints(lineData));
         series.applyOptions({
-          color: layer.style?.color ?? "#f59e0b",
-          lineWidth: (layer.style?.lineWidth ?? 2) as LineWidth,
+          ...lineSeriesOptionsFromLayer(layer),
           visible: true,
         });
       } catch {

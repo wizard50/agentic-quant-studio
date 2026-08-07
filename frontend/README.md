@@ -40,7 +40,10 @@ Open http://localhost:3001. Repo overview: [root README](../README.md). Backend 
 
 ## Chart architecture
 
-The Market Research page renders a single `ChartBlock` backed by a layer document and a compiled block spec.
+The Market Research page renders a single `ChartBlock`.
+
+- **Layers mode** — `ChartLayer[]` → `buildChartBlockSpecFromLayers` → run + render
+- **Study mode** — `Study.graph` + **`Study.presentation`** (server `compile_presentation`) → `buildChartBlockSpecFromStudy` (no client re-layout). Marker layers use `visual: "markers"`.
 
 ```
 ChartLayer[]  (document — store, UI, future persistence/agents)
