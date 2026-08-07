@@ -50,6 +50,12 @@ export interface Study {
   version: number;
   updated_at: string;
   graph: GraphSpec;
+  /** Derived by backend compile_presentation (panes + outputs). */
+  presentation?: {
+    version: number;
+    panes: unknown[];
+    outputs: string[];
+  };
   title?: string;
   created_by?: StudyCreatedBy;
   presentation_overrides?: unknown;
@@ -57,6 +63,12 @@ export interface Study {
 
 export interface CreateStudyRequest {
   graph: GraphSpec;
+  /** Derived by backend compile_presentation (panes + outputs). */
+  presentation?: {
+    version: number;
+    panes: unknown[];
+    outputs: string[];
+  };
   title?: string;
   created_by?: StudyCreatedBy;
   presentation_overrides?: unknown;

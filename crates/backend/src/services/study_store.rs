@@ -1,6 +1,7 @@
 use chrono::Utc;
 use dashmap::DashMap;
 use std::sync::Arc;
+use studio::presentation::PresentationSpec;
 use studio::spec::GraphSpec;
 use uuid::Uuid;
 
@@ -57,6 +58,7 @@ impl StudyStore {
     pub fn create_draft(
         &self,
         graph: GraphSpec,
+        presentation: PresentationSpec,
         title: Option<String>,
         created_by: Option<StudyCreatedBy>,
         presentation_overrides: Option<serde_json::Value>,
@@ -67,6 +69,7 @@ impl StudyStore {
             version: 1,
             updated_at: Utc::now(),
             graph,
+            presentation,
             title,
             created_by,
             presentation_overrides,
@@ -79,6 +82,7 @@ impl StudyStore {
         &self,
         id: &str,
         graph: GraphSpec,
+        presentation: PresentationSpec,
         title: Option<String>,
         presentation_overrides: Option<serde_json::Value>,
         expected_version: Option<u64>,
@@ -101,6 +105,7 @@ impl StudyStore {
         }
 
         entry.graph = graph;
+        entry.presentation = presentation;
         if title.is_some() {
             entry.title = title;
         }
@@ -161,6 +166,7 @@ impl StudyStore {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use studio::presentation::PresentationSpec;
     use studio::spec::GraphKind;
 
     fn sample_graph(id: &str) -> GraphSpec {
@@ -173,11 +179,19 @@ mod tests {
         }
     }
 
+    fn empty_presentation() -> PresentationSpec {
+        PresentationSpec {
+            version: 1,
+            panes: vec![],
+            outputs: vec![],
+        }
+    }
+
     #[test]
     fn create_draft_sets_version_one() {
         let store = StudyStore::new();
         let study = store.create_draft(
-            sample_graph("g1"),
+            sample_graph("g1"), empty_presentation(),
             Some("t".into()),
             Some(StudyCreatedBy::Agent),
             None,
@@ -193,8 +207,8 @@ mod tests {
     #[test]
     fn list_filters_and_orders() {
         let store = StudyStore::new();
-        let d1 = store.create_draft(sample_graph("a"), None, None, None);
-        let d2 = store.create_draft(sample_graph("b"), None, None, None);
+        let d1 = store.create_draft(sample_graph("a"), empty_presentation(), None, None, None);
+        let d2 = store.create_draft(sample_graph("b"), empty_presentation(), None, None, None);
         store.accept(&d1.id).unwrap();
 
         let drafts = store.list(&[StudyStatus::Draft]);
@@ -209,12 +223,12 @@ mod tests {
     #[test]
     fn update_draft_increments_version() {
         let store = StudyStore::new();
-        let study = store.create_draft(sample_graph("g1"), None, None, None);
+        let study = store.create_draft(sample_graph("g1"), empty_presentation(), None, None, None);
 
         let updated = store
             .update_draft(
                 &study.id,
-                sample_graph("g2"),
+                sample_graph("g2"), empty_presentation(),
                 Some("n".into()),
                 None,
                 Some(1),
@@ -229,10 +243,10 @@ mod tests {
     #[test]
     fn update_draft_version_conflict() {
         let store = StudyStore::new();
-        let study = store.create_draft(sample_graph("g1"), None, None, None);
+        let study = store.create_draft(sample_graph("g1"), empty_presentation(), None, None, None);
 
         let err = store
-            .update_draft(&study.id, sample_graph("g2"), None, None, Some(99))
+            .update_draft(&study.id, sample_graph("g2"), empty_presentation(), None, None, Some(99))
             .unwrap_err();
 
         assert_eq!(
@@ -248,11 +262,11 @@ mod tests {
     #[test]
     fn update_applied_is_invalid_status() {
         let store = StudyStore::new();
-        let study = store.create_draft(sample_graph("g1"), None, None, None);
+        let study = store.create_draft(sample_graph("g1"), empty_presentation(), None, None, None);
         store.accept(&study.id).unwrap();
 
         let err = store
-            .update_draft(&study.id, sample_graph("g2"), None, None, None)
+            .update_draft(&study.id, sample_graph("g2"), empty_presentation(), None, None, None)
             .unwrap_err();
         assert_eq!(
             err,
@@ -265,10 +279,10 @@ mod tests {
     #[test]
     fn accept_archives_previous_applied() {
         let store = StudyStore::new();
-        let first = store.create_draft(sample_graph("g1"), None, None, None);
+        let first = store.create_draft(sample_graph("g1"), empty_presentation(), None, None, None);
         store.accept(&first.id).unwrap();
 
-        let second = store.create_draft(sample_graph("g2"), None, None, None);
+        let second = store.create_draft(sample_graph("g2"), empty_presentation(), None, None, None);
         let accepted = store.accept(&second.id).unwrap();
 
         assert_eq!(accepted.status, StudyStatus::Applied);
@@ -279,7 +293,7 @@ mod tests {
     #[test]
     fn accept_non_draft_fails() {
         let store = StudyStore::new();
-        let study = store.create_draft(sample_graph("g1"), None, None, None);
+        let study = store.create_draft(sample_graph("g1"), empty_presentation(), None, None, None);
         store.accept(&study.id).unwrap();
 
         let err = store.accept(&study.id).unwrap_err();
@@ -294,11 +308,11 @@ mod tests {
     #[test]
     fn delete_draft_ok_applied_fails() {
         let store = StudyStore::new();
-        let draft = store.create_draft(sample_graph("g1"), None, None, None);
+        let draft = store.create_draft(sample_graph("g1"), empty_presentation(), None, None, None);
         store.delete(&draft.id).unwrap();
         assert!(store.get(&draft.id).is_none());
 
-        let applied = store.create_draft(sample_graph("g2"), None, None, None);
+        let applied = store.create_draft(sample_graph("g2"), empty_presentation(), None, None, None);
         store.accept(&applied.id).unwrap();
         let err = store.delete(&applied.id).unwrap_err();
         assert_eq!(
@@ -312,9 +326,9 @@ mod tests {
     #[test]
     fn delete_archived_ok() {
         let store = StudyStore::new();
-        let first = store.create_draft(sample_graph("g1"), None, None, None);
+        let first = store.create_draft(sample_graph("g1"), empty_presentation(), None, None, None);
         store.accept(&first.id).unwrap();
-        let second = store.create_draft(sample_graph("g2"), None, None, None);
+        let second = store.create_draft(sample_graph("g2"), empty_presentation(), None, None, None);
         store.accept(&second.id).unwrap();
 
         assert_eq!(store.get(&first.id).unwrap().status, StudyStatus::Archived);

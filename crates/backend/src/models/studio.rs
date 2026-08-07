@@ -7,6 +7,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use studio::{
     error::Error,
+    presentation::PresentationSpec,
     runtime::{PortStore, Value},
     spec::{GraphSpec, PortRef},
 };
@@ -65,6 +66,8 @@ pub struct Study {
     pub version: u64,
     pub updated_at: DateTime<Utc>,
     pub graph: GraphSpec,
+    /// Derived chart layout from `compile_presentation` (not agent-authored).
+    pub presentation: PresentationSpec,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -286,6 +289,11 @@ mod tests {
                 kind: studio::spec::GraphKind::Chart,
                 nodes: vec![],
                 edges: vec![],
+            },
+            presentation: studio::presentation::PresentationSpec {
+                version: 1,
+                panes: vec![],
+                outputs: vec![],
             },
             title: Some("Demo".to_string()),
             created_by: Some(StudyCreatedBy::Agent),

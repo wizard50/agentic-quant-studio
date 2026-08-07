@@ -34,14 +34,14 @@ Base path: `/api/v1`. The Next.js frontend proxies these as `/api/backend/v1/...
 | POST | `/studio/runs` | Execute a graph — `{ graph, outputs }` → port values + `meta` |
 | POST | `/studio/validate` | Validate a graph only — `{ graph }` → `{ ok: true }` (no execute/persist) |
 | GET | `/studies` | List studies — `?status=draft,applied` (default: draft+applied; include `archived` via query) |
-| POST | `/studies` | Create **draft** — `{ graph, title?, created_by?, presentation_overrides? }` → **201** |
+| POST | `/studies` | Create **draft** — `{ graph, title?, created_by?, presentation_overrides? }` → **201** with derived `presentation` |
 | GET | `/studies/{id}` | Get one study — **404** if missing |
 | PUT | `/studies/{id}` | Update **draft** (`graph` / title / overrides / `expected_version`) and/or accept (`status: "applied"`) |
 | DELETE | `/studies/{id}` | Delete draft or archived — **409** if applied |
 
 Job statuses: `pending`, `running`, `completed`, `failed`, `cancelled`.
 
-**Studies** are a flat in-memory registry (lost on restart). Statuses: `draft`, `applied`, `archived`. At most one `applied` study. `Study.version` is the study revision for concurrency — not `graph.version`. To derive a new draft from an existing study, `GET` it and `POST /studies` with the graph (no server-side fork).
+**Studies** are a flat in-memory registry (lost on restart). Statuses: `draft`, `applied`, `archived`. At most one `applied` study. `Study.version` is the study revision for concurrency — not `graph.version`. On create/update of `graph`, the server runs `validate` then `compile_presentation` and stores the result as `Study.presentation` (panes, layers, outputs). Agents author only the graph; `presentation_overrides` is reserved and not applied yet. To derive a new draft from an existing study, `GET` it and `POST /studies` with the graph (no server-side fork).
 
 ### Examples
 
@@ -63,10 +63,32 @@ curl -X POST http://127.0.0.1:3000/api/v1/jobs \
 # Active ingestion jobs
 curl -s "http://127.0.0.1:3000/api/v1/jobs?active=true&kind=ingest_candles" | jq
 
-# Create a study draft (agent path)
+# Create a study draft (agent path) — response includes presentation.panes / outputs
 curl -s -X POST http://127.0.0.1:3000/api/v1/studies \
   -H "Content-Type: application/json" \
-  -d '{"graph":{"id":"g1","version":1,"kind":"chart","nodes":[],"edges":[]},"created_by":"agent","title":"demo"}' | jq
+  -d '{
+    "created_by": "agent",
+    "title": "sma demo",
+    "graph": {
+      "id": "ds-sma",
+      "version": 1,
+      "kind": "chart",
+      "nodes": [
+        {
+          "id": "ds1",
+          "kind": "datasource.candles",
+          "params": {
+            "exchange": "bybit",
+            "category": "spot",
+            "symbol": "BTCUSDT",
+            "interval": "1d"
+          }
+        },
+        { "id": "sma20", "kind": "indicator.sma", "params": { "period": 20 } }
+      ],
+      "edges": [{ "from": "ds1.close", "to": "sma20.input" }]
+    }
+  }' | jq '{id, status, presentation}'
 
 # List drafts + applied
 curl -s http://127.0.0.1:3000/api/v1/studies | jq
