@@ -54,6 +54,10 @@ fn api_routes() -> Router<AppState> {
         .route("/studio/runs", post(studio::run_graph))
         .route("/studio/validate", post(studio::validate_graph))
         .route(
+            "/studio/presentations",
+            post(studio::compile_presentation_handler),
+        )
+        .route(
             "/studies",
             get(studies::list_studies).post(studies::create_study),
         )

@@ -3,14 +3,17 @@ use std::sync::Arc;
 use axum::{Json, extract::State, http::StatusCode};
 use studio::{
     error::Error,
-    registry::builtin_registry,
+    presentation::{PresentationSpec, compile_presentation},
+    registry::{NodeRegistry, builtin_registry},
     runtime::{ExecutionContext, execute, validate},
+    spec::GraphSpec,
 };
 use tracing::{error, warn};
 
 use crate::{
     models::studio::{
-        StudioRunRequest, StudioRunResponse, ValidateStudyRequest, ValidateStudyResponse,
+        CompilePresentationRequest, StudioRunRequest, StudioRunResponse, ValidateStudyRequest,
+        ValidateStudyResponse,
     },
     services::WarehouseCandleSource,
     state::AppState,
@@ -62,6 +65,30 @@ pub async fn validate_graph(
     Ok(Json(ValidateStudyResponse { ok: true }))
 }
 
+/// Compile chart presentation from a graph without persisting (agent dry-run).
+pub async fn compile_presentation_handler(
+    Json(request): Json<CompilePresentationRequest>,
+) -> Result<Json<PresentationSpec>, StatusCode> {
+    let registry = builtin_registry();
+    let presentation = validate_and_compile(&request.graph, &registry)?;
+    Ok(Json(presentation))
+}
+
+/// Validate graph then derive presentation (shared by studies write path and dry-run).
+pub(crate) fn validate_and_compile(
+    graph: &GraphSpec,
+    registry: &NodeRegistry,
+) -> Result<PresentationSpec, StatusCode> {
+    validate(graph, registry).map_err(|err| {
+        log_studio_error(&graph.id, &err);
+        studio_error_status(&err)
+    })?;
+    compile_presentation(graph, registry).map_err(|err| {
+        log_studio_error(&graph.id, &err);
+        studio_error_status(&err)
+    })
+}
+
 pub(crate) fn studio_error_status(err: &Error) -> StatusCode {
     match err {
         Error::DataSource(message) if message == "candle dataset not found" => {
@@ -80,7 +107,8 @@ pub(crate) fn studio_error_status(err: &Error) -> StatusCode {
         | Error::CycleDetected
         | Error::PortTypeMismatch { .. }
         | Error::TypeMismatch { .. }
-        | Error::Indicator(_) => StatusCode::UNPROCESSABLE_ENTITY,
+        | Error::Indicator(_)
+        | Error::MissingCandlesDatasource => StatusCode::UNPROCESSABLE_ENTITY,
         Error::DataSource(_) => StatusCode::INTERNAL_SERVER_ERROR,
     }
 }
@@ -123,5 +151,55 @@ mod tests {
     fn maps_unknown_kind_to_400() {
         let status = studio_error_status(&Error::UnknownKind("nope.thing".to_string()));
         assert_eq!(status, StatusCode::BAD_REQUEST);
+    }
+
+    #[test]
+    fn validate_and_compile_sma_produces_main_pane() {
+        let graph: GraphSpec = serde_json::from_str(
+            r#"{
+              "id": "ds-sma",
+              "version": 1,
+              "kind": "chart",
+              "nodes": [
+                {
+                  "id": "ds1",
+                  "kind": "datasource.candles",
+                  "params": {
+                    "exchange": "bybit",
+                    "category": "spot",
+                    "symbol": "BTCUSDT",
+                    "interval": "1d"
+                  }
+                },
+                { "id": "sma20", "kind": "indicator.sma", "params": { "period": 20 } }
+              ],
+              "edges": [{ "from": "ds1.close", "to": "sma20.input" }]
+            }"#,
+        )
+        .unwrap();
+        let presentation = validate_and_compile(&graph, &builtin_registry()).unwrap();
+        assert_eq!(presentation.panes.len(), 1);
+        assert_eq!(presentation.panes[0].id, "main");
+        assert!(presentation.outputs.iter().any(|o| o == "sma20.value"));
+    }
+
+    #[test]
+    fn validate_and_compile_missing_candles_is_422_mapping() {
+        let graph: GraphSpec = serde_json::from_str(
+            r#"{
+              "id": "no-ds",
+              "version": 1,
+              "kind": "chart",
+              "nodes": [
+                { "id": "sma20", "kind": "indicator.sma", "params": { "period": 20 } }
+              ],
+              "edges": []
+            }"#,
+        )
+        .unwrap();
+        // validate passes; compile fails → same status as MissingCandlesDatasource
+        let err = studio::presentation::compile_presentation(&graph, &builtin_registry())
+            .unwrap_err();
+        assert_eq!(studio_error_status(&err), StatusCode::UNPROCESSABLE_ENTITY);
     }
 }

@@ -7,7 +7,7 @@ pub enum ChartRole {
     Subchart,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ValueRange {
     pub min: f64,
     pub max: f64,
