@@ -135,6 +135,12 @@ pub struct ValidateStudyResponse {
     pub ok: bool,
 }
 
+/// Dry-run presentation compile (no persist). Same graph body shape as validate.
+#[derive(Debug, Deserialize)]
+pub struct CompilePresentationRequest {
+    pub graph: GraphSpec,
+}
+
 #[derive(Debug, Serialize)]
 pub struct StudioRunResponse {
     pub outputs: HashMap<String, Value>,

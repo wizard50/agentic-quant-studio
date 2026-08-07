@@ -3,10 +3,8 @@ use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
 };
-use studio::presentation::compile_presentation;
 use studio::registry::builtin_registry;
 use studio::runtime::validate;
-use studio::spec::GraphSpec;
 use tracing::warn;
 
 use crate::{
@@ -17,7 +15,7 @@ use crate::{
     state::AppState,
 };
 
-use super::studio::{log_studio_error, studio_error_status};
+use super::studio::{log_studio_error, studio_error_status, validate_and_compile};
 
 pub async fn list_studies(
     State(state): State<AppState>,
@@ -134,20 +132,6 @@ pub async fn delete_study(
     Ok(StatusCode::NO_CONTENT)
 }
 
-fn validate_and_compile(
-    graph: &GraphSpec,
-    registry: &studio::registry::NodeRegistry,
-) -> Result<studio::presentation::PresentationSpec, StatusCode> {
-    validate(graph, registry).map_err(|err| {
-        log_studio_error(&graph.id, &err);
-        studio_error_status(&err)
-    })?;
-    compile_presentation(graph, registry).map_err(|err| {
-        log_studio_error(&graph.id, &err);
-        studio_error_status(&err)
-    })
-}
-
 fn map_store_error(err: StudyStoreError) -> StatusCode {
     match err {
         StudyStoreError::NotFound => StatusCode::NOT_FOUND,
@@ -169,6 +153,7 @@ fn map_store_error(err: StudyStoreError) -> StatusCode {
 mod tests {
     use super::*;
     use crate::services::StudyStore;
+    use studio::presentation::compile_presentation;
     use studio::spec::{GraphKind, GraphSpec, NodeSpec};
 
     #[test]
