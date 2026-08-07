@@ -9,7 +9,7 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 export const metadata: Metadata = {
   title: "Agentic Quant Studio",
   description:
-    "Build autonomous AI agents for quant trading and Web3. Research, code generation, backtesting & on-chain analysis in one intelligent studio.",
+    "Build autonomous AI agents for quantitative research and trading. Research, indicators, strategies, and backtesting in one intelligent studio.",
 };
 
 export default function RootLayout({

@@ -1,6 +1,6 @@
 # Agentic Quant Studio
 
-A workspace for building agentic AI systems in quantitative finance and Web3.
+A workspace for building agentic AI systems in quantitative finance.
 
 <div align="center">
   <img 
@@ -14,7 +14,7 @@ A workspace for building agentic AI systems in quantitative finance and Web3.
 
 ## What exists today
 
-This repo is an **early-stage data platform**, not yet an agentic workspace. There is no chat, no RAG, no backtesting engine, and no on-chain integration in the codebase. What works end-to-end today:
+This repo is an **early-stage data platform**, not yet an agentic workspace. There is no chat, no RAG, and no backtesting engine in the codebase. What works end-to-end today:
 
 - **Warehouse** — Hive-partitioned Parquet, catalog scan, read/resample ([`crates/warehouse/README.md`](crates/warehouse/README.md))
 - **Backend** — Axum API, jobs, catalogs, studies ([`crates/backend/README.md`](crates/backend/README.md))
@@ -23,6 +23,12 @@ This repo is an **early-stage data platform**, not yet an agentic workspace. The
 - **MCP server** — stdio tools for external agents over the backend API ([`crates/mcp-server/README.md`](crates/mcp-server/README.md))
 
 The name reflects the **long-term vision** (see [Vision](#vision)); the implementation is focused on reliable market data, chart UX, and the graph spec foundation for indicators and strategies.
+
+### MCP integration path
+
+The **MCP server** (`aqs-mcp`) exposes the backend (catalogs, graph validation, draft studies) over the [Model Context Protocol](https://modelcontextprotocol.io/). Host apps and external agents (Claude, Cursor, or anything else that speaks MCP) can drive the platform today—before an in-product agent exists—and remain a first-class alternative path once built-in agents land.
+
+Other tools and data sources can meet AQS at the same API surface. Agent-authored studies land as drafts the user accepts in the Market Research UI. Setup and tools: **[`crates/mcp-server/README.md`](crates/mcp-server/README.md)**.
 
 ---
 
@@ -71,8 +77,9 @@ Details — spec types, built-in nodes, examples: **[`crates/studio/README.md`](
 | Jobs | In-process queue + worker (not Redis/Sidekiq) |
 | Warehouse | Parquet, Polars, custom catalog |
 | Frontend | Next.js 16, React Query, Zustand, shadcn/ui, Lightweight Charts, Vitest |
+| Agents / hosts | MCP server (`aqs-mcp`) over backend HTTP; in-product agents later |
 
-**Not in the repo yet:** agent framework (e.g. Rig), RAG, backtesting, Web3 / ERC-8004, MLOps.
+**Not in the repo yet:** in-product agent/chat (e.g. Rig), RAG, backtesting, MLOps.
 
 ---
 
@@ -106,6 +113,7 @@ Config and API examples: **[`crates/backend/README.md`](crates/backend/README.md
 │   ├── api-client/      # exchange clients (Bybit)
 │   ├── backend/         # Axum API — see crates/backend/README.md
 │   ├── common/          # shared types
+│   ├── mcp-server/      # stdio MCP path — see crates/mcp-server/README.md
 │   ├── studio/          # GraphSpec + runtime — see crates/studio/README.md
 │   └── warehouse/       # Parquet + catalog — see crates/warehouse/README.md
 ├── frontend/            # Next.js UI — see frontend/README.md
@@ -120,11 +128,9 @@ Long-term goal: an intelligent workspace where users interact with AI agents (ch
 
 - Run quantitative research and backtesting
 - Generate indicators, strategies, and dashboards
-- Analyze DEX pools and on-chain data
 - Use RAG on documents and private knowledge bases
-- Register and run autonomous on-chain agents (ERC-8004 / Solana)
 
-None of that is implemented yet; the current milestone is **reliable market data ingest + catalogs + chart UX with dynamic indicators + `GraphSpec` foundation** for agent-composed strategies.
+None of that is implemented yet as a first-party agent experience. The **MCP server** is already the open path for external agents and host apps, and is expected to stay as an alternative even alongside built-in agents (see [MCP integration path](#mcp-integration-path)). The current milestone remains **reliable market data ingest + catalogs + chart UX with dynamic indicators + `GraphSpec` foundation** for agent-composed strategies.
 
 ---
 
