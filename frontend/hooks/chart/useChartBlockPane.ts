@@ -28,6 +28,8 @@ export interface UseChartBlockPaneParams {
   mainChartRef: React.RefObject<IChartApi | null>;
   /** When true, render lines from pane LayerSpecs (study mode). */
   studyMode?: boolean;
+  /** Forces a fresh Lightweight Charts host when study/layers selection changes. */
+  chartMountKey?: string;
 }
 
 export function useChartBlockPane({
@@ -36,9 +38,12 @@ export function useChartBlockPane({
   chartReady,
   mainChartRef,
   studyMode = false,
+  chartMountKey = "default",
 }: UseChartBlockPaneParams) {
   const containerRef = useRef<HTMLDivElement>(null);
   const seriesRef = useRef<BlockChartSeries | null>(null);
+  /** False while chart is torn down / not yet created — ignore layout & resize. */
+  const chartAliveRef = useRef(false);
   const [containerHeight, setContainerHeight] = useState(0);
   const [chartRevision, setChartRevision] = useState(0);
 
@@ -56,6 +61,10 @@ export function useChartBlockPane({
   }, [datafeedRef]);
 
   const applyLayout = useCallback(() => {
+    if (!chartAliveRef.current) {
+      return;
+    }
+
     const series = seriesRef.current;
     const chartApi = series?.chart;
     const container = containerRef.current;
@@ -68,7 +77,11 @@ export function useChartBlockPane({
       return;
     }
 
-    applyPaneLayoutToChart(chartApi, panes, height);
+    try {
+      applyPaneLayoutToChart(chartApi, panes, height);
+    } catch {
+      // Chart disposed between alive check and layout (mode switch).
+    }
   }, [panes]);
 
   const handleContainerResize = useCallback((height: number) => {
@@ -85,16 +98,22 @@ export function useChartBlockPane({
     const series = createBlockChart(container, paneSnapshot);
     seriesRef.current = series;
     mainChartRef.current = series.chart;
+    chartAliveRef.current = true;
     syncFromFeedCache();
     setChartRevision((revision) => revision + 1);
 
     return () => {
+      chartAliveRef.current = false;
       const chartToRemove = series.chart;
       seriesRef.current = null;
       mainChartRef.current = null;
-      chartToRemove.remove();
+      try {
+        chartToRemove.remove();
+      } catch {
+        // Already disposed.
+      }
     };
-  }, [mainChartRef, paneSnapshot, syncFromFeedCache]);
+  }, [mainChartRef, paneSnapshot, syncFromFeedCache, chartMountKey]);
 
   useEffect(() => {
     if (!seriesRef.current?.chart) {
@@ -133,6 +152,7 @@ export function useChartBlockPane({
     chartReady: chartReady && !studyMode,
     panes,
     layoutKey,
+    chartInstanceId: chartRevision,
   });
 
   usePortLineSeries({
@@ -141,6 +161,7 @@ export function useChartBlockPane({
     chartReady,
     panes,
     layoutKey,
+    chartInstanceId: chartRevision,
     enabled: studyMode,
   });
 
@@ -151,11 +172,13 @@ export function useChartBlockPane({
     chartReady,
     panes,
     layoutKey,
+    chartInstanceId: chartRevision,
     enabled: studyMode,
   });
 
   return {
     containerRef,
     containerHeight,
+    chartMountKey,
   };
 }

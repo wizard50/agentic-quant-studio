@@ -95,9 +95,23 @@ export function useChartBlockData({
   const [status, setStatus] = useState<ChartStatus>("idle");
   const [error, setError] = useState<Error | null>(null);
 
+  // Identity of the chart "session". Changing this must mark not-ready on the *same*
+  // render (setState alone only applies next render, which is too late for effects).
+  const hardSwitchKey = `${studyMode}:${study?.id ?? ""}:${study?.version ?? ""}:${marketDataKey.exchange}:${marketDataKey.category}:${marketDataKey.symbol}:${marketDataKey.interval}`;
+  const [seenHardSwitchKey, setSeenHardSwitchKey] = useState(hardSwitchKey);
+  const hardSwitchPending = seenHardSwitchKey !== hardSwitchKey;
+  if (hardSwitchPending) {
+    setSeenHardSwitchKey(hardSwitchKey);
+    if (status === "ready" || status === "error") {
+      setStatus("loading");
+      setError(null);
+    }
+  }
+
   const displayStatus: ChartStatus = marketDataKey.symbol ? status : "idle";
   const displayError = marketDataKey.symbol ? error : null;
-  const chartReady = displayStatus === "ready";
+  // hardSwitchPending: this render still has status==="ready" from previous study
+  const chartReady = displayStatus === "ready" && !hardSwitchPending;
 
   useEffect(() => {
     datafeedRef.current.configure(spec, warmupBars);

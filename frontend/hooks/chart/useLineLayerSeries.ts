@@ -24,6 +24,7 @@ interface UseLineLayerSeriesParams {
   chartReady: boolean;
   panes: PaneSpec[];
   layoutKey: string;
+  chartInstanceId: number;
 }
 
 export function useLineLayerSeries({
@@ -32,6 +33,7 @@ export function useLineLayerSeries({
   chartReady,
   panes,
   layoutKey,
+  chartInstanceId,
 }: UseLineLayerSeriesParams): void {
   const allLayers = useChartLayersStore((state) => state.layers);
   const indicatorLayers = filterIndicatorLayers(allLayers);
@@ -75,5 +77,6 @@ export function useLineLayerSeries({
     resolveLayer,
     addSeries,
     layoutKey,
+    chartInstanceId,
   });
 }
