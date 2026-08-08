@@ -44,8 +44,12 @@ export function useChartResize({
         return;
       }
 
-      chart.resize(clientWidth, clientHeight);
-      onResized?.();
+      try {
+        chart.resize(clientWidth, clientHeight);
+        onResized?.();
+      } catch {
+        // Chart was disposed mid-resize (study ↔ layers switch).
+      }
     };
 
     const observer = new ResizeObserver(() => {

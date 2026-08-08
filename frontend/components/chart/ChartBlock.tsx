@@ -27,12 +27,17 @@ export function ChartBlock({ className, ...params }: ChartBlockProps) {
     studyMode,
   } = useChartBlockData(params);
 
+  const chartMountKey = params.study
+    ? `study:${params.study.id}:${params.study.version}`
+    : `layers:${params.exchange}:${params.category}:${params.symbol}:${params.interval}`;
+
   const { containerRef, containerHeight } = useChartBlockPane({
     panes: spec.panes,
     datafeedRef,
     chartReady,
     mainChartRef,
     studyMode,
+    chartMountKey,
   });
 
   const legendTops = useMemo(
@@ -61,6 +66,7 @@ export function ChartBlock({ className, ...params }: ChartBlockProps) {
         }
       >
         <div
+          key={chartMountKey}
           ref={containerRef}
           className="absolute inset-0 touch-none"
           aria-label="Chart block"

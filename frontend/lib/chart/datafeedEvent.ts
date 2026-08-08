@@ -32,8 +32,12 @@ export function handleBlockChartDatafeedEvent(
         return;
       }
 
-      syncBlockChartFromEvent(ctx.series, event);
-      ctx.chart?.timeScale().fitContent();
+      try {
+        syncBlockChartFromEvent(ctx.series, event);
+        ctx.chart?.timeScale().fitContent();
+      } catch {
+        // Chart disposed mid-update.
+      }
       return;
 
     case "prepend": {
@@ -41,16 +45,20 @@ export function handleBlockChartDatafeedEvent(
         return;
       }
 
-      const rangeBeforeUpdate =
-        ctx.chart?.timeScale().getVisibleLogicalRange() ?? null;
-      syncBlockChartFromEvent(ctx.series, event);
+      try {
+        const rangeBeforeUpdate =
+          ctx.chart?.timeScale().getVisibleLogicalRange() ?? null;
+        syncBlockChartFromEvent(ctx.series, event);
 
-      if (ctx.chart) {
-        preserveViewportOnPrepend(
-          ctx.chart,
-          event.barsAdded,
-          rangeBeforeUpdate,
-        );
+        if (ctx.chart) {
+          preserveViewportOnPrepend(
+            ctx.chart,
+            event.barsAdded,
+            rangeBeforeUpdate,
+          );
+        }
+      } catch {
+        // Chart disposed mid-update.
       }
       return;
     }
@@ -66,7 +74,11 @@ function syncHistogramLayersFromCandles(
   for (const layerId of series.histogramLayerIds) {
     const histogram = series.byLayerId.get(layerId);
     if (histogram?.seriesType() === "Histogram") {
-      histogram.setData(volumeBars);
+      try {
+        histogram.setData(volumeBars);
+      } catch {
+        // Series disposed.
+      }
     }
   }
 }
@@ -79,8 +91,12 @@ export function hydrateBlockChart(
     return;
   }
 
-  getCandlesSeries(series)?.setData(toCandleBars(candles));
-  syncHistogramLayersFromCandles(series, candles);
+  try {
+    getCandlesSeries(series)?.setData(toCandleBars(candles));
+    syncHistogramLayersFromCandles(series, candles);
+  } catch {
+    // Chart/series disposed during study ↔ layers switch.
+  }
 }
 
 export function syncBlockChartFromEvent(
@@ -89,16 +105,24 @@ export function syncBlockChartFromEvent(
 ): void {
   switch (event.type) {
     case "reset":
-      getCandlesSeries(series)?.setData([]);
-      for (const layerId of series.histogramLayerIds) {
-        series.byLayerId.get(layerId)?.setData([]);
+      try {
+        getCandlesSeries(series)?.setData([]);
+        for (const layerId of series.histogramLayerIds) {
+          series.byLayerId.get(layerId)?.setData([]);
+        }
+      } catch {
+        // Chart disposed.
       }
       return;
 
     case "replace":
     case "prepend":
-      getCandlesSeries(series)?.setData(toCandleBars(event.candles));
-      syncHistogramLayersFromCandles(series, event.candles);
+      try {
+        getCandlesSeries(series)?.setData(toCandleBars(event.candles));
+        syncHistogramLayersFromCandles(series, event.candles);
+      } catch {
+        // Chart disposed.
+      }
       return;
   }
 }

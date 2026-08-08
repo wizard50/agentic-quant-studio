@@ -30,6 +30,7 @@ export interface UseIndicatorLineSeriesParams {
     definition: IndicatorDefinition,
   ) => ISeriesApi<"Line">;
   layoutKey: string;
+  chartInstanceId: number;
 }
 
 function responseHasLineOutput(
@@ -51,6 +52,7 @@ export function useIndicatorLineSeries({
   resolveLayer,
   addSeries,
   layoutKey,
+  chartInstanceId,
 }: UseIndicatorLineSeriesParams): void {
   const setLayerStatus = useChartLayersStore((state) => state.setLayerStatus);
   const clearLayerStatus = useChartLayersStore(
@@ -196,14 +198,19 @@ export function useIndicatorLineSeries({
     datafeedRef,
   ]);
 
+  // Chart recreation invalidates series handles — do not removeSeries on the new chart.
   useEffect(() => {
-    for (const layerId of [...seriesByIdRef.current.keys()]) {
-      removeSeries(layerId);
-    }
-  }, [layoutKey, removeSeries]);
+    seriesByIdRef.current.clear();
+    appliedGenerationRef.current += 1;
+  }, [layoutKey, chartInstanceId]);
 
   useEffect(() => {
     if (!chartReady) {
+      // Prefer clear over removeSeries: chart may already be torn down.
+      if (!chartRef.current) {
+        seriesByIdRef.current.clear();
+        return;
+      }
       for (const layerId of [...seriesByIdRef.current.keys()]) {
         removeSeries(layerId);
       }
@@ -234,6 +241,7 @@ export function useIndicatorLineSeries({
     allIndicatorLayers,
     applyFromViewport,
     chartReady,
+    chartRef,
     indicatorLayers,
     isPlacementMatch,
     layoutKey,

@@ -25,6 +25,7 @@ interface UseMarkerLayersParams {
   chartReady: boolean;
   panes: PaneSpec[];
   layoutKey: string;
+  chartInstanceId: number;
   enabled: boolean;
 }
 
@@ -69,6 +70,7 @@ export function useMarkerLayers({
   chartReady,
   panes,
   layoutKey,
+  chartInstanceId,
   enabled,
 }: UseMarkerLayersParams): void {
   const pluginsByLayerIdRef = useRef(
@@ -162,6 +164,13 @@ export function useMarkerLayers({
             continue;
           }
 
+          // Chart may have been recreated since we captured `chart`.
+          if (chartRef.current !== chart) {
+            needsRetry = true;
+            clearPlugin(layer.id);
+            continue;
+          }
+
           let plugin = pluginsByLayerIdRef.current.get(layer.id);
           if (!plugin) {
             plugin = createSeriesMarkers(anchor, markers);
@@ -211,9 +220,15 @@ export function useMarkerLayers({
     applyFromViewportRef.current = applyFromViewport;
   }, [applyFromViewport]);
 
+  // Plugins bind to series on the previous chart instance; drop handles only.
   useEffect(() => {
-    clearAllPlugins();
-  }, [layoutKey, clearAllPlugins]);
+    pluginsByLayerIdRef.current.clear();
+    appliedGenerationRef.current += 1;
+    if (retryHandleRef.current != null) {
+      cancelAnimationFrame(retryHandleRef.current);
+      retryHandleRef.current = null;
+    }
+  }, [layoutKey, chartInstanceId]);
 
   useEffect(() => {
     if (!enabled) {

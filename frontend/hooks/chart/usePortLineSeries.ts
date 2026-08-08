@@ -25,6 +25,8 @@ interface UsePortLineSeriesParams {
   chartReady: boolean;
   panes: PaneSpec[];
   layoutKey: string;
+  /** Bumps when Lightweight Charts instance is recreated. */
+  chartInstanceId: number;
   /** When false, clears series and does nothing (document mode). */
   enabled: boolean;
 }
@@ -76,6 +78,7 @@ export function usePortLineSeries({
   chartReady,
   panes,
   layoutKey,
+  chartInstanceId,
   enabled,
 }: UsePortLineSeriesParams): void {
   const seriesByIdRef = useRef(new Map<string, ISeriesApi<"Line">>());
@@ -187,14 +190,20 @@ export function usePortLineSeries({
     removeSeries,
   ]);
 
+  // Chart is recreated on layoutKey / instance change; old series APIs are already
+  // gone with chart.remove(). Calling removeSeries on the new chart with old handles
+  // throws "Object is disposed".
   useEffect(() => {
-    for (const layerId of [...seriesByIdRef.current.keys()]) {
-      removeSeries(layerId);
-    }
-  }, [layoutKey, removeSeries]);
+    seriesByIdRef.current.clear();
+    appliedGenerationRef.current += 1;
+  }, [layoutKey, chartInstanceId]);
 
   useEffect(() => {
     if (!enabled) {
+      if (!chartRef.current) {
+        seriesByIdRef.current.clear();
+        return;
+      }
       for (const layerId of [...seriesByIdRef.current.keys()]) {
         removeSeries(layerId);
       }
