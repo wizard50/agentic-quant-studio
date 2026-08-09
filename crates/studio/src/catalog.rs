@@ -4,7 +4,7 @@ use crate::{
     registry::NodeRegistry,
     runtime::{
         display::ChartDefaults,
-        node::{NodeMeta, Param, ParamKind},
+        node::{NodeCategory, NodeMeta, Param, ParamKind},
         value::ValueKind,
     },
 };
@@ -14,9 +14,26 @@ pub struct IndicatorCatalog {
     pub indicators: Vec<IndicatorEntry>,
 }
 
+/// Full node-kind catalog (datasource, indicator, logic, literal) for agent discovery.
+#[derive(Debug, Clone, Serialize)]
+pub struct NodeKindCatalog {
+    pub kinds: Vec<NodeKindEntry>,
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct IndicatorEntry {
     pub kind: String,
+    pub inputs: Vec<CatalogPort>,
+    pub outputs: Vec<CatalogPort>,
+    pub params: Vec<CatalogParam>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub chart_defaults: Option<ChartDefaults>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct NodeKindEntry {
+    pub kind: String,
+    pub category: NodeCategory,
     pub inputs: Vec<CatalogPort>,
     pub outputs: Vec<CatalogPort>,
     pub params: Vec<CatalogParam>,
@@ -68,10 +85,39 @@ impl IndicatorCatalog {
     }
 }
 
+impl NodeKindCatalog {
+    pub fn from_registry(registry: &NodeRegistry) -> Self {
+        Self {
+            kinds: registry
+                .all_metas()
+                .into_iter()
+                .map(NodeKindEntry::from_meta)
+                .collect(),
+        }
+    }
+
+    pub fn get(&self, kind: &str) -> Option<&NodeKindEntry> {
+        self.kinds.iter().find(|entry| entry.kind == kind)
+    }
+}
+
 impl IndicatorEntry {
     fn from_meta(meta: NodeMeta) -> Self {
         Self {
             kind: meta.kind,
+            inputs: meta.inputs.iter().map(CatalogPort::from_port).collect(),
+            outputs: meta.outputs.iter().map(CatalogPort::from_port).collect(),
+            params: meta.params.iter().map(CatalogParam::from_param).collect(),
+            chart_defaults: meta.chart_defaults,
+        }
+    }
+}
+
+impl NodeKindEntry {
+    fn from_meta(meta: NodeMeta) -> Self {
+        Self {
+            kind: meta.kind,
+            category: meta.category,
             inputs: meta.inputs.iter().map(CatalogPort::from_port).collect(),
             outputs: meta.outputs.iter().map(CatalogPort::from_port).collect(),
             params: meta.params.iter().map(CatalogParam::from_param).collect(),
@@ -187,5 +233,28 @@ mod tests {
         assert_eq!(rsi["chart_defaults"]["value_range"]["min"], 0.0);
         assert_eq!(rsi["chart_defaults"]["value_range"]["max"], 100.0);
         assert_eq!(rsi["chart_defaults"]["warmup_bars"], 14);
+    }
+
+    #[test]
+    fn node_kind_catalog_includes_logic_and_datasource_ports() {
+        let catalog = NodeKindCatalog::from_registry(&builtin_registry());
+        let json = serde_json::to_value(&catalog).unwrap();
+        let kinds = json["kinds"].as_array().unwrap();
+        assert!(kinds.len() >= 10);
+
+        let ds = catalog.get("datasource.candles").expect("candles");
+        assert_eq!(ds.category, NodeCategory::DataSource);
+        assert!(ds.outputs.iter().any(|p| p.name == "close"));
+
+        let cross = catalog.get("logic.crossover").expect("crossover");
+        assert_eq!(cross.category, NodeCategory::Logic);
+        assert_eq!(cross.inputs[0].name, "fast");
+        assert_eq!(cross.inputs[1].name, "slow");
+        assert_eq!(cross.outputs[0].name, "signal");
+
+        let lit = catalog.get("literal.number").expect("literal.number");
+        assert_eq!(lit.category, NodeCategory::Literal);
+        assert_eq!(lit.inputs[0].name, "reference");
+        assert_eq!(lit.params[0].name, "value");
     }
 }

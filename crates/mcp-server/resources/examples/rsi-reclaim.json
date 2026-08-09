@@ -1,0 +1,28 @@
+{
+  "id": "rsi-reclaim",
+  "version": 1,
+  "kind": "chart",
+  "nodes": [
+    {
+      "id": "ds1",
+      "kind": "datasource.candles",
+      "params": {
+        "exchange": "bybit",
+        "category": "spot",
+        "symbol": "BTCUSDT",
+        "interval": "1d"
+      }
+    },
+    { "id": "rsi14", "kind": "indicator.rsi", "params": { "period": 14 } },
+    { "id": "sma20", "kind": "indicator.sma", "params": { "period": 20 } },
+    { "id": "level30", "kind": "literal.number", "params": { "value": 30 } },
+    { "id": "reclaim", "kind": "logic.crossover", "params": {} }
+  ],
+  "edges": [
+    { "from": "ds1.close", "to": "rsi14.input" },
+    { "from": "ds1.close", "to": "sma20.input" },
+    { "from": "ds1.timestamp", "to": "level30.reference" },
+    { "from": "rsi14.value", "to": "reclaim.fast" },
+    { "from": "level30.value", "to": "reclaim.slow" }
+  ]
+}

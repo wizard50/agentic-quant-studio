@@ -1780,6 +1780,7 @@ dependencies = [
  "schemars",
  "serde",
  "serde_json",
+ "studio",
  "tokio",
  "tracing",
  "tracing-subscriber",

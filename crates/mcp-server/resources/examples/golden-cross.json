@@ -1,0 +1,26 @@
+{
+  "id": "golden-cross-btc-1d",
+  "version": 1,
+  "kind": "chart",
+  "nodes": [
+    {
+      "id": "ds1",
+      "kind": "datasource.candles",
+      "params": {
+        "exchange": "bybit",
+        "category": "spot",
+        "symbol": "BTCUSDT",
+        "interval": "1d"
+      }
+    },
+    { "id": "sma20", "kind": "indicator.sma", "params": { "period": 20 } },
+    { "id": "sma50", "kind": "indicator.sma", "params": { "period": 50 } },
+    { "id": "cross", "kind": "logic.crossover", "params": {} }
+  ],
+  "edges": [
+    { "from": "ds1.close", "to": "sma20.input" },
+    { "from": "ds1.close", "to": "sma50.input" },
+    { "from": "sma20.value", "to": "cross.fast" },
+    { "from": "sma50.value", "to": "cross.slow" }
+  ]
+}

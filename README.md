@@ -20,13 +20,13 @@ This repo is an **early-stage data platform**, not yet an agentic workspace. The
 - **Backend** — Axum API, jobs, catalogs, studies ([`crates/backend/README.md`](crates/backend/README.md))
 - **Frontend** — Market Research + Data Management ([`frontend/README.md`](frontend/README.md))
 - **Studio** — `GraphSpec` + runtime + indicator catalog ([`crates/studio/README.md`](crates/studio/README.md))
-- **MCP server** — stdio tools for external agents over the backend API ([`crates/mcp-server/README.md`](crates/mcp-server/README.md))
+- **MCP server** — stdio tools, resources (docs/schema/examples), and prompts for external agents over the backend API ([`crates/mcp-server/README.md`](crates/mcp-server/README.md))
 
 The name reflects the **long-term vision** (see [Vision](#vision)); the implementation is focused on reliable market data, chart UX, and the graph spec foundation for indicators and strategies.
 
 ### MCP integration path
 
-The **MCP server** (`aqs-mcp`) exposes the backend (catalogs, graph validation, draft studies) over the [Model Context Protocol](https://modelcontextprotocol.io/). Host apps and external agents (Claude, Cursor, or anything else that speaks MCP) can drive the platform today—before an in-product agent exists—and remain a first-class alternative path once built-in agents land.
+The **MCP server** (`aqs-mcp`) exposes the backend (catalogs, graph validation, draft studies) over the [Model Context Protocol](https://modelcontextprotocol.io/), plus **resources** (`aqs://docs/…`, `aqs://schema/…`) for GraphSpec documentation and node-kind discovery, and **prompts** for common draft workflows. Host apps and external agents (Claude, Cursor, Grok, or anything else that speaks MCP) can drive the platform today—before an in-product agent exists—and remain a first-class alternative path once built-in agents land.
 
 Other tools and data sources can meet AQS at the same API surface. Agent-authored studies land as drafts the user accepts in the Market Research UI. Setup and tools: **[`crates/mcp-server/README.md`](crates/mcp-server/README.md)**.
 

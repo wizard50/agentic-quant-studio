@@ -3,6 +3,7 @@
 //! Talks to the backend HTTP API only. Log to stderr — stdout is the MCP channel.
 
 mod client;
+mod resources;
 mod server;
 
 use anyhow::Result;
