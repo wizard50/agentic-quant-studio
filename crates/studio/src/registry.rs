@@ -44,6 +44,13 @@ impl NodeRegistry {
         metas.sort_by(|left, right| left.kind.cmp(&right.kind));
         metas
     }
+
+    /// All registered node metas, sorted by kind (datasource, indicator, logic, literal).
+    pub fn all_metas(&self) -> Vec<NodeMeta> {
+        let mut metas: Vec<NodeMeta> = self.meta.values().cloned().collect();
+        metas.sort_by(|left, right| left.kind.cmp(&right.kind));
+        metas
+    }
 }
 
 impl Default for NodeRegistry {
@@ -86,7 +93,11 @@ mod tests {
         let registry = builtin_registry();
         let indicators = registry.indicator_metas();
 
-        assert!(!indicators.iter().any(|meta| meta.kind.starts_with("literal.")));
+        assert!(
+            !indicators
+                .iter()
+                .any(|meta| meta.kind.starts_with("literal."))
+        );
     }
 
     #[test]

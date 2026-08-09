@@ -3,6 +3,7 @@ use crate::runtime::context::ExecutionContext;
 use crate::runtime::display::ChartDefaults;
 use crate::runtime::value::{SeriesBool, SeriesF64, SeriesI64, Value, ValueKind};
 use async_trait::async_trait;
+use serde::Serialize;
 use std::{collections::HashMap, sync::Arc};
 
 #[derive(Debug, Clone)]
@@ -15,7 +16,8 @@ pub struct NodeMeta {
     pub chart_defaults: Option<ChartDefaults>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum NodeCategory {
     DataSource,
     Indicator,
