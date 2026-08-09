@@ -28,6 +28,8 @@ The name reflects the **long-term vision** (see [Vision](#vision)); the implemen
 
 The **MCP server** (`aqs-mcp`) exposes the backend (catalogs, graph validation, draft studies) over the [Model Context Protocol](https://modelcontextprotocol.io/), plus **resources** (`aqs://docs/…`, `aqs://schema/…`) for GraphSpec documentation and node-kind discovery, and **prompts** for common draft workflows. Host apps and external agents (Claude, Cursor, Grok, or anything else that speaks MCP) can drive the platform today—before an in-product agent exists—and remain a first-class alternative path once built-in agents land.
 
+**Demo:** [MCP walkthrough on YouTube](https://www.youtube.com/watch?v=V80_Kx98FMM) — external agent → GraphSpec draft → accept in Market Research.
+
 Other tools and data sources can meet AQS at the same API surface. Agent-authored studies land as drafts the user accepts in the Market Research UI. Setup and tools: **[`crates/mcp-server/README.md`](crates/mcp-server/README.md)**.
 
 ---

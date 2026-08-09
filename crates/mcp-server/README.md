@@ -3,6 +3,8 @@
 Stdio [Model Context Protocol](https://modelcontextprotocol.io/) server for **Agentic Quant Studio**.  
 Thin host over the running **backend HTTP API** (`AQS_BACKEND_URL`), plus **resources** (docs/schema/examples) and **prompts** (user workflows).
 
+**Demo:** [MCP end-to-end on YouTube](https://www.youtube.com/watch?v=V80_Kx98FMM)
+
 ```text
 Agent host (Claude / Cursor / Grok / …)
         │  stdio MCP
